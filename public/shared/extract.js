@@ -103,7 +103,7 @@
       ? "，全部都要填。"
       : "，其中 " + x.required + " 项必须填，另外 " + x.optional + " 项可以不填。";
     if (x.keyItems.length) {
-      s += "最要紧的是" + x.keyItems.map(function (k) { return k.name; }).join("、") +
+      s += "最要紧的是" + x.keyItems.map(function (k) { return k.label || k.name; }).join("、") +
         "，这几项填错会被退回来。";
     }
     if (x.prepare.length) {
@@ -122,7 +122,7 @@
     var keys = "";
     if (x.keyItems.length) {
       keys = "<ul class='ex-list'>" + x.keyItems.map(function (k) {
-        return "<li><strong>" + esc(k.name) + "</strong><span>" + esc(k.why) +
+        return "<li><strong>" + esc(k.label || k.name) + "</strong><span>" + esc(k.why) +
           (k.required ? "" : "（选填）") + "</span></li>";
       }).join("") + "</ul>";
     } else {

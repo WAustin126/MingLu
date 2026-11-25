@@ -17,6 +17,6 @@ http://47.93.151.236/minglu/（机构端 /org/、个人端 /user/）
 DASHSCOPE_API_KEY=<your-key> PORT=8081 node server.js
 ```
 
-可选环境变量：MINGLU_TEXT_MODEL（默认 qwen-plus）、MINGLU_VL_MODEL（默认 qwen-vl-plus，图片解析）、MINGLU_BASE_URL。
+可选环境变量：MINGLU_TEXT_MODEL（默认 qwen-plus）、MINGLU_VL_MODEL（默认 qwen3-vl-plus，图片解析）、MINGLU_BASE_URL。
 
 部署细节见 DEPLOY.md 与 DEPLOY-ECS.md。本仓库为 2026-11-25 服务器现行版本的源码快照。

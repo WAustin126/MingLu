@@ -38,7 +38,7 @@ const API_KEY = process.env.DASHSCOPE_API_KEY || '';
 const BASE_URL = String(process.env.MINGLU_BASE_URL ||
   'https://dashscope.aliyuncs.com/compatible-mode/v1').replace(/\/+$/, '');
 const TEXT_MODEL = process.env.MINGLU_TEXT_MODEL || 'qwen-plus';
-const VL_MODEL = process.env.MINGLU_VL_MODEL || 'qwen-vl-plus';
+const VL_MODEL = process.env.MINGLU_VL_MODEL || 'qwen3-vl-plus';
 const MAX_PARSE_BODY = 12 * 1024 * 1024;
 const MODEL_FILING = process.env.MINGLU_MODEL_FILING || 'ZheJiang-TongYiQianWen-20230901';
 
@@ -92,12 +92,12 @@ function json(res, status, body, extraHeaders) {
   res.end(payload);
 }
 
-function baseHeaders() {
+function baseHeaders(framable) {
   return {
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'no-referrer',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-    'X-Frame-Options': 'DENY',
+    'X-Frame-Options': framable ? 'SAMEORIGIN' : 'DENY',
     'Content-Security-Policy': [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline'",
@@ -106,7 +106,7 @@ function baseHeaders() {
       "connect-src 'self'",
       "form-action 'self'",
       "base-uri 'none'",
-      "frame-ancestors 'none'"
+      framable ? "frame-ancestors 'self'" : "frame-ancestors 'none'"
     ].join('; ')
   };
 }
@@ -355,7 +355,7 @@ function serveStatic(req, res, pathname) {
 
   fs.stat(target, (err, stat) => {
     if (err || !stat.isFile()) return notFound(res);
-    const headers = Object.assign(baseHeaders(), {
+    const headers = Object.assign(baseHeaders(rel.startsWith('/data/')), {
       'Content-Type': type,
       'Content-Length': stat.size,
       'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=300'

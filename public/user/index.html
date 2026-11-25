@@ -51,6 +51,7 @@
       <button type="button" class="tool-btn" id="fontBtn">标准</button>
       <span class="tlabel">朗读</span>
       <button type="button" class="tool-btn" id="ttsBtn" aria-pressed="false">关闭</button>
+      <a class="tool-btn" href="../index.html">返回首页</a>
     </div>
   </header>
 
@@ -267,9 +268,27 @@
       li.classList.toggle("active", s === n || (n === 2 && s === 3));
       li.classList.toggle("done", s < n);
     });
+    state.maxStep = Math.max(state.maxStep || 1, n);
     document.getElementById("title-" + n).focus();
     window.scrollTo(0, 0);
   }
+
+  /* 步骤栏可点：只能跳到已经到过的步骤；第 3 步（当场校验）与第 2 步同面板 */
+  document.querySelectorAll(".stepbar li").forEach(function (li) {
+    li.style.cursor = "pointer";
+    li.addEventListener("click", function () {
+      var s = parseInt(li.getAttribute("data-step"), 10);
+      if (s === 3) { s = 2; }
+      if (s <= (state.maxStep || 1)) {
+        // 离开第 2 步前，先把当前这一项已填的内容收进答案（与「上一项」按钮同一口径）
+        var p2 = document.getElementById("panel-2");
+        if (p2 && !p2.hidden && state.fields && state.fields.length) {
+          try { state.answers[currentField().key] = readAnswer(); } catch (e) { }
+        }
+        goStep(s);
+      }
+    });
+  });
 
   /* ---------- 载入表单：机构发布 > 自己导入 > 示例 ---------- */
   function applySchema(schema, source) {
