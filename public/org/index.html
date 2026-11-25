@@ -69,7 +69,7 @@
       <p class="step-desc">导入后先由语义层理解出<b>字段模型</b>（每项是什么、类型、是否必填、顺序、分组）。<b>没有字段模型，不进入检测。</b></p>
 
       <div class="card">
-        <h2 style="font-size:1.05em;margin-top:0">三种导入方式</h2>
+        <h2 style="font-size:1.05em;margin-top:0">导入方式</h2>
         <div class="btn-row" style="margin-top:0">
           <button type="button" class="btn" id="loadSample">使用示例表单 original.html</button>
           <label class="btn secondary" for="fileInput" style="cursor:pointer">上传 .html 文件</label>
@@ -80,6 +80,11 @@
           <textarea id="pasteArea" rows="6" style="width:100%;margin-top:10px;font-family:monospace;font-size:.85em;padding:10px" placeholder="&lt;form&gt;…&lt;/form&gt;"></textarea>
           <button type="button" class="btn secondary" id="loadPaste" style="margin-top:10px;min-height:44px">载入粘贴的内容</button>
         </details>
+        <div style="margin-top:14px;border-top:1px dashed #c9cdc4;padding-top:12px">
+          <label class="btn secondary" for="aiFileInput" style="cursor:pointer">上传照片 / PDF / Word（AI 识别）</label>
+          <input type="file" id="aiFileInput" accept="image/*,.pdf,.docx" class="visually-hidden">
+          <p class="foot-note" style="margin-top:8px">纸质表拍照、PDF 电子表、Word 文档都可以：AI 先读出字段结构设为当前表单。只能读出「有哪些字段」，读不出原表的结构问题；下一步的诊断将读取示例表的问题清单，页面会标明来源。</p>
+        </div>
       </div>
 
       <div class="card" style="margin-top:16px">
@@ -452,6 +457,86 @@
     var v = $("#pasteArea").value.trim();
     if (!v) { $("#importResult").innerHTML = '<div class="alert alert-err">请先粘贴 HTML 源码。</div>'; return; }
     acceptHtml(v, "粘贴的表单");
+  });
+
+  /* --- AI 多格式导入：照片 / PDF / Word → 字段模型 --- */
+  function acceptAiSchema(result, name) {
+    var schema;
+    try { schema = MingluImport.fromAiResult(result, name); } catch (e) { schema = null; }
+    if (!schema || !schema.fields || !schema.fields.length) {
+      $("#importResult").innerHTML = '<div class="alert alert-err">AI 没有从这个文件里整理出字段，请换一个更清楚的文件再试。</div>';
+      return;
+    }
+    state.schema = schema;
+    state.rawModel = null;
+    state.schemaSource = "AI 识别导入（" + name + "）";
+    state.name = name;
+    state.html = null;
+    state.report = null; state.reportSource = "";
+    state.decisions = {}; state.fixedDone = false; state.recheck = null;
+    $("#importResult").innerHTML = '<div class="alert alert-ok">已通过 AI 识别导入「' + esc(name) +
+      "」：字段 " + schema.fields.length + " 项，已设为当前表单。原表的结构问题不在识别范围内，" +
+      "下一步将读取示例表的问题清单（页面会标明来源）。</div>";
+    renderModel();
+  }
+
+  function aiImportFail(err) {
+    if (window.console && err && err.message) { console.warn("[明路] AI 文件导入失败：", err.message); }
+    $("#importResult").innerHTML = '<div class="alert alert-err">这次没能用 AI 读这个文件。' +
+      (err && err.message ? "（" + esc(err.message) + "）" : "") +
+      "<br>可以改用上面的方式：上传 .html 文件，或把表单内容粘贴进来。</div>";
+  }
+
+  $("#aiFileInput").addEventListener("change", function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) { return; }
+    var name = f.name;
+    var lower = name.toLowerCase();
+    if (f.size > 9 * 1024 * 1024) {
+      $("#importResult").innerHTML = '<div class="alert alert-err">这个文件太大了（超过 9 MB），请压缩或换一个再试。</div>';
+      return;
+    }
+    $("#importResult").innerHTML = '<div class="alert alert-info">正在用 AI 读这个文件并整理成字段结构，大约需要十几秒…</div>';
+
+    if (/\.(pdf|docx)$/.test(lower)) {
+      var kind = lower.slice(-4) === "docx" ? "docx" : "pdf";
+      var fr = new FileReader();
+      fr.onload = function () {
+        var dataUrl = String(fr.result);
+        var b64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+        MingluAI.parseFormFile(kind, b64).then(function (r) { acceptAiSchema(r.result, name); }, aiImportFail);
+      };
+      fr.onerror = function () { aiImportFail({ message: "文件读不出来" }); };
+      fr.readAsDataURL(f);
+      return;
+    }
+
+    if (f.type && f.type.indexOf("image/") === 0) {
+      var ir = new FileReader();
+      ir.onload = function () {
+        var dataUrl = String(ir.result);
+        var img = new Image();
+        img.onload = function () {
+          var maxSide = 1600;
+          var scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+          if (scale < 1) {
+            var cv = document.createElement("canvas");
+            cv.width = Math.round(img.width * scale);
+            cv.height = Math.round(img.height * scale);
+            cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+            dataUrl = cv.toDataURL("image/jpeg", 0.85);
+          }
+          MingluAI.parseFormText("", dataUrl).then(function (r) { acceptAiSchema(r.result, name); }, aiImportFail);
+        };
+        img.onerror = function () { aiImportFail({ message: "这张照片读不出来" }); };
+        img.src = dataUrl;
+      };
+      ir.onerror = function () { aiImportFail({ message: "这张照片读不出来" }); };
+      ir.readAsDataURL(f);
+      return;
+    }
+
+    $("#importResult").innerHTML = '<div class="alert alert-err">这个格式暂时不支持，目前可导入：照片、PDF、Word（.docx）、.html 文件。</div>';
   });
 
   /* --- F9：产物导入（schema + issues） --- */

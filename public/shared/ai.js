@@ -221,6 +221,16 @@
     });
   };
 
+  /* ---------- 文件解析（PDF / Word，服务端预处理后走同一解析口径） ---------- */
+  AI.parseFormFile = function (kind, dataBase64) {
+    var s = AI.getSettings();
+    if (s.mode === "proxy") {
+      return callModel({ __path: "/api/parse-form", file: { kind: kind, dataBase64: dataBase64 } }, 120000)
+        .then(function (d) { return { ok: true, result: d.result, model: d.model }; });
+    }
+    return Promise.reject({ code: "FILE_NEEDS_PROXY", message: "PDF / Word 文件解析需要通过部署版服务进行，当前模式不支持。" });
+  };
+
   /* ---------- 当前状态文案 ---------- */
   AI.status = function () {
     var s = AI.getSettings();

@@ -389,9 +389,56 @@ async function handleParseForm(req, res) {
     return json(res, read.code, { error: read.error });
   }
   const body = read.value;
-  const text = clip(body.text, 6000);
-  const image = typeof body.image === 'string' ? body.image : '';
-  if (!text && !image) {
+  let text = clip(body.text, 6000);
+  let image = typeof body.image === 'string' ? body.image : '';
+  let pdfImages = [];
+
+  // 文件导入：Word(.docx) 在服务端提取文字；PDF 转成页面图片，再走视觉解析
+  const fileIn = body.file && typeof body.file === 'object' ? body.file : null;
+  if (fileIn && !text && !image) {
+    const kind = String(fileIn.kind || '');
+    const b64 = typeof fileIn.dataBase64 === 'string' ? fileIn.dataBase64 : '';
+    if (!b64) { return json(res, 400, { error: '文件内容为空，没有读到数据。' }); }
+    let buf = null;
+    try { buf = Buffer.from(b64, 'base64'); } catch (e) { buf = null; }
+    if (!buf || !buf.length) { return json(res, 400, { error: '文件内容无法解码。' }); }
+    if (buf.length > 9 * 1024 * 1024) { return json(res, 400, { error: '文件超过 9MB，请压缩或拆分后再试。' }); }
+    const fsx = require('fs'); const osx = require('os'); const pathx = require('path');
+    const { execFile } = require('child_process');
+    const dir = fsx.mkdtempSync(pathx.join(osx.tmpdir(), 'minglu-parse-'));
+    try {
+      if (kind === 'docx') {
+        const fp = pathx.join(dir, 'in.docx');
+        fsx.writeFileSync(fp, buf);
+        const out = await new Promise((resolve, reject) => {
+          execFile('python3', ['/opt/minglu/tools/docx2txt.py', fp], { timeout: 30000, maxBuffer: 4 * 1024 * 1024 },
+            (err, stdout) => err ? reject(err) : resolve(stdout));
+        });
+        text = clip(String(out || ''), 6000);
+        if (!text) { try { fsx.rmSync(dir, { recursive: true, force: true }); } catch (e) { } return json(res, 400, { error: '这个 Word 文档里没有提取到文字，请确认是 .docx 文件且内容不为空。' }); }
+      } else if (kind === 'pdf') {
+        const fp = pathx.join(dir, 'in.pdf');
+        fsx.writeFileSync(fp, buf);
+        await new Promise((resolve, reject) => {
+          execFile('pdftoppm', ['-png', '-r', '150', '-f', '1', '-l', '3', fp, pathx.join(dir, 'page')], { timeout: 45000 },
+            (err) => err ? reject(err) : resolve());
+        });
+        const pages = fsx.readdirSync(dir).filter((n) => /^page-\d+\.png$/.test(n)).sort();
+        if (!pages.length) { try { fsx.rmSync(dir, { recursive: true, force: true }); } catch (e) { } return json(res, 400, { error: '这个 PDF 没有转出页面图片，请确认文件没有损坏。' }); }
+        pdfImages = pages.map((n) => 'data:image/png;base64,' + fsx.readFileSync(pathx.join(dir, n)).toString('base64'));
+      } else {
+        try { fsx.rmSync(dir, { recursive: true, force: true }); } catch (e) { }
+        return json(res, 400, { error: '这种文件格式暂时不支持，目前可导入：照片、PDF、Word（.docx）。' });
+      }
+    } catch (e) {
+      console.error('[parse-form] file preprocess failed kind=' + kind);
+      return json(res, 502, { error: '文件预处理失败，本次没有调用模型。请换一个文件再试。' });
+    } finally {
+      try { fsx.rmSync(dir, { recursive: true, force: true }); } catch (e) { }
+    }
+  }
+
+  if (!text && !image && !pdfImages.length) {
     return json(res, 400, { error: '没有文字也没有图片，无法解析。' });
   }
   if (image && !/^data:image\/(png|jpeg|webp);base64,/.test(image)) {
@@ -407,9 +454,10 @@ async function handleParseForm(req, res) {
     }
   }
 
-  const model = image ? VL_MODEL : TEXT_MODEL;
+  const model = (image || pdfImages.length) ? VL_MODEL : TEXT_MODEL;
   const content = [];
   if (image) content.push({ type: 'image_url', image_url: { url: image } });
+  pdfImages.forEach((u) => content.push({ type: 'image_url', image_url: { url: u } }));
   if (text) content.push({ type: 'text', text: '表单文字内容如下：\n' + text });
   content.push({
     type: 'text',
