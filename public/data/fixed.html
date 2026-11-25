@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>社区公益活动报名（演示样本，不是真实报名）｜明路修复版</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    margin: 0; background: #f5f6f8; color: #222; line-height: 1.6;
+  }
+  /* C-11/C-12/C-13：灰字对比度提到 4.5:1 以上，说明文字字号提到 14px */
+  .demo-banner {
+    background: #6c5000; color: #fff; text-align: center;
+    padding: 12px 16px; font-size: 15px; font-weight: 600;
+  }
+  .toolbar {
+    max-width: 560px; margin: 16px auto 0; padding: 0 32px;
+    font-size: 15px; color: #494949;
+  }
+  .toolbar a { color: #1b4fa8; }
+  main {
+    max-width: 560px; margin: 12px auto 24px; background: #fff;
+    border-radius: 8px; padding: 24px 32px 32px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 24px 0 8px; }
+  .sub { color: #595959; font-size: 15px; margin: 0 0 12px; }
+  .legend-note {
+    font-size: 15px; color: #333; background: #f2f4f7;
+    border-left: 4px solid #1b4fa8; padding: 8px 12px; margin: 0 0 20px;
+  }
+  fieldset { border: 0; padding: 0; margin: 0 0 18px; }
+  legend { padding: 0; font-weight: 600; font-size: 15px; margin-bottom: 6px; }
+  .field { margin-bottom: 18px; }
+  .field-label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 15px; padding: 0; }
+  .req { color: #a30000; font-style: normal; font-weight: 700; }
+  input[type="text"], input[type="email"], input[type="number"], textarea {
+    width: 100%; padding: 10px 12px; border: 2px solid #6b6b6b;
+    border-radius: 4px; font-size: 16px; font-family: inherit; background: #fff; color: #222;
+  }
+  .options { display: flex; flex-direction: column; gap: 8px; }
+  .options label { font-weight: 400; font-size: 16px; display: flex; align-items: flex-start; gap: 8px;
+                   padding: 6px 8px; border-radius: 4px; }
+  .options input { width: 22px; height: 22px; margin: 1px 0 0; flex: 0 0 auto; }
+  .hint { color: #595959; font-size: 14px; margin: 6px 0 0; }
+  .stepper { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .step-btn {
+    min-width: 48px; min-height: 48px; padding: 0 16px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 20px; background: #eaeef5; color: #123; border: 2px solid #1b4fa8;
+    border-radius: 6px; cursor: pointer; font-family: inherit;
+  }
+  #count { width: 110px; text-align: center; }
+  /* 错误状态：颜色 + 文字 + 关联，三重表达 */
+  .error { border-color: #a30000 !important; background: #fff3f3; }
+  fieldset.error .options { border: 2px solid #a30000; background: #fff3f3; border-radius: 4px; padding: 6px; }
+  .error-msg { display: none; color: #a30000; font-size: 15px; font-weight: 600; margin: 6px 0 0; }
+  .error-msg.shown { display: block; }
+  #form-status { margin: 0 0 16px; padding: 12px; border-radius: 4px; font-size: 16px; }
+  #form-status.status-error { background: #fdecea; color: #8a0000; border: 2px solid #a30000; }
+  #form-status.status-ok { background: #e8f6e8; color: #145214; border: 2px solid #2e8b2e; }
+  #error-summary ol { margin: 8px 0 0; padding-left: 22px; }
+  #error-summary li { margin: 4px 0; }
+  #error-summary a { color: #8a0000; font-weight: 600; text-decoration: underline; }
+  .btn-row { margin-top: 24px; display: flex; gap: 12px; flex-wrap: wrap; }
+  button {
+    min-height: 48px; padding: 10px 22px; font-size: 16px; border-radius: 6px;
+    cursor: pointer; font-family: inherit;
+  }
+  #submitBtn { background: #1b4fa8; color: #fff; border: 2px solid #1b4fa8; }
+  #resetBtn { background: #fff; color: #12345f; border: 2px solid #1b4fa8; }
+  :focus-visible { outline: 3px solid #0b74d8; outline-offset: 2px; }
+  footer { text-align: center; color: #595959; font-size: 14px; padding: 20px 16px 32px; }
+  .sr-note { color: #494949; font-weight: 400; font-size: 15px; }
+  .visually-hidden {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+  }
+  @media (max-width: 600px) {
+    main, .toolbar { padding-left: 16px; padding-right: 16px; }
+    .step-btn { min-width: 56px; min-height: 56px; }
+    .options label { padding: 10px 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="demo-banner">演示环境，请勿填写真实个人信息 · 本页不发送任何数据</div>
+<p class="toolbar">
+  本文件是明路生成的<b>修复版</b>。
+  <a href="original.html">打开原版对照</a> ·
+  <a href="index.html">返回明路双模式工作台</a>
+</p>
+
+<main>
+  <h1>社区公益活动报名</h1>
+  <p class="sub">本周社区图书馆整理与阅读推广活动，欢迎报名成为志愿者。</p>
+
+  <p class="legend-note">
+    带 <span class="req" aria-hidden="true">*</span> 号的项目是<b>必填项</b>。
+    全部操作只在本页模拟，不向任何服务器发送数据。
+  </p>
+
+  <div id="form-status" role="status" aria-live="polite" tabindex="-1"></div>
+
+  <div id="error-summary" role="alert" tabindex="-1" hidden>
+    <h2 id="error-summary-title">提交未通过：共 <span id="error-count">0</span> 处需要修改</h2>
+    <ol id="error-list"></ol>
+  </div>
+
+  <form id="signup" novalidate onsubmit="return handleSubmit(event);">
+
+    <div class="field">
+      <label class="field-label" for="name">称呼 <span class="req" aria-hidden="true">*</span><span class="sr-note">（必填）</span></label>
+      <input type="text" id="name" name="name" autocomplete="name"
+             required aria-required="true" aria-describedby="name-help name-error">
+      <p class="hint" id="name-help">可以是昵称，不必是身份证姓名。</p>
+      <p class="error-msg" id="name-error"></p>
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="email">联系邮箱 <span class="req" aria-hidden="true">*</span><span class="sr-note">（必填）</span></label>
+      <input type="email" id="email" name="email" autocomplete="email" inputmode="email"
+             placeholder="例如 name@example.com"
+             required aria-required="true" aria-describedby="email-help email-error">
+      <p class="hint" id="email-help">用于活动通知；演示环境不会真的发送邮件。格式：用户名@域名.顶级域。</p>
+      <p class="error-msg" id="email-error"></p>
+    </div>
+
+    <fieldset id="session-options" aria-describedby="session-help session-error">
+      <legend>活动场次（单选，必答） <span class="req" aria-hidden="true">*</span><span class="sr-note">（必答）</span></legend>
+      <div class="options">
+        <label><input type="radio" name="session" id="session-1" value="周六上午场" required aria-required="true"> 周六上午场（9:00–12:00）</label>
+        <label><input type="radio" name="session" id="session-2" value="周六下午场"> 周六下午场（14:00–17:00）</label>
+        <label><input type="radio" name="session" id="session-3" value="周日全天"> 周日全天（9:00–17:00）</label>
+      </div>
+      <p class="hint" id="session-help">三个场次中选一个，不能多选。</p>
+      <p class="error-msg" id="session-error"></p>
+    </fieldset>
+
+    <div class="field">
+      <label class="field-label" for="count">参与人数 <span class="req" aria-hidden="true">*</span><span class="sr-note">（必填）</span></label>
+      <div class="stepper">
+        <button type="button" class="step-btn" id="step-dec" onclick="changeCount(-1)" aria-label="减少参与人数">−</button>
+        <input type="number" id="count" name="count" min="1" max="10" step="1" value="1"
+               required aria-required="true" aria-describedby="count-help count-error"
+               inputmode="numeric">
+        <button type="button" class="step-btn" id="step-inc" onclick="changeCount(1)" aria-label="增加参与人数">＋</button>
+      </div>
+      <p class="hint" id="count-help">单场最多 10 人。可用按钮、键盘上下方向键，或直接输入数字。</p>
+      <p class="error-msg" id="count-error"></p>
+      <p role="status" aria-live="polite" class="visually-hidden" id="count-announce"></p>
+    </div>
+
+    <fieldset aria-describedby="pref-help">
+      <legend>服务偏好（可多选，可不选）</legend>
+      <div class="options">
+        <label><input type="checkbox" name="pref" value="现场引导"> 现场引导</label>
+        <label><input type="checkbox" name="pref" value="物资整理"> 物资整理</label>
+        <label><input type="checkbox" name="pref" value="摄影记录"> 摄影记录</label>
+        <label><input type="checkbox" name="pref" value="交流协助"> 交流协助</label>
+      </div>
+      <p class="hint" id="pref-help">可以选多项，也可以一项都不选。</p>
+    </fieldset>
+
+    <div class="field">
+      <label class="field-label" for="note">备注</label>
+      <textarea id="note" name="note" rows="3" placeholder="如：希望和同学一组参加" aria-describedby="note-help"></textarea>
+      <p class="hint" id="note-help">选填。可以写下你的特殊需求，例如希望和同学一组参加。</p>
+    </div>
+
+    <div class="btn-row">
+      <button type="submit" id="submitBtn">提交报名</button>
+      <button type="reset" id="resetBtn">重置</button>
+    </div>
+  </form>
+</main>
+
+<footer>“明路——公益表单无障碍修复助手” · 修复版 fixed.html · 版本 v1（2026-11-05）· 与 original.html 逐条差异见 change-log.md</footer>
+
+<script>
+  var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  // 字段元数据：与 form.schema.json 保持一致（同一份字段清单驱动本页校验）
+  var FIELD_META = {
+    name:    { label: "称呼",     focus: "name" },
+    email:   { label: "联系邮箱", focus: "email" },
+    session: { label: "活动场次", focus: "session-1" },
+    count:   { label: "参与人数", focus: "count" }
+  };
+
+  function announce(text) {
+    document.getElementById('count-announce').textContent = text;
+  }
+
+  // —— 参与人数步进器（C-05：原生 button + 真实 number 输入）——
+  function changeCount(delta) {
+    var el = document.getElementById('count');
+    var cur = parseInt(el.value, 10);
+    if (isNaN(cur)) { cur = 1; }
+    var next = Math.min(10, Math.max(1, cur + delta));
+    el.value = next;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    announce('参与人数 ' + next + ' 人，范围 1 到 10 人');
+  }
+
+  function setError(key, message) {
+    var meta = FIELD_META[key];
+    var msgEl = document.getElementById(key + '-error');
+    var box = errorBox(key);
+    if (msgEl) { msgEl.textContent = message; msgEl.classList.add('shown'); }
+    if (box) { box.classList.add('error'); }
+    if (key === 'session') {
+      var r = document.getElementById('session-1');
+      if (r) { r.setAttribute('aria-invalid', 'true'); }
+    } else if (box) {
+      box.setAttribute('aria-invalid', 'true');
+    }
+  }
+
+  function errorBox(key) {
+    return key === 'session'
+      ? document.getElementById('session-options')
+      : document.getElementById(FIELD_META[key].focus);
+  }
+
+  function clearErrorMarks() {
+    Object.keys(FIELD_META).forEach(function (key) {
+      var msgEl = document.getElementById(key + '-error');
+      if (msgEl) { msgEl.textContent = ''; msgEl.classList.remove('shown'); }
+      var box = errorBox(key);
+      if (box) { box.classList.remove('error'); box.removeAttribute('aria-invalid'); }
+    });
+    var status = document.getElementById('form-status');
+    status.className = '';
+    status.textContent = '';
+    var sum = document.getElementById('error-summary');
+    sum.hidden = true;
+    document.getElementById('error-list').innerHTML = '';
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    clearErrorMarks();
+    var problems = [];
+
+    var nameEl = document.getElementById('name');
+    if (!nameEl.value.trim()) {
+      setError('name', '称呼不能为空，请输入一个称呼（可以是昵称）。');
+      problems.push('name');
+    }
+
+    var emailEl = document.getElementById('email');
+    var emailVal = emailEl.value.trim();
+    if (!emailVal) {
+      setError('email', '联系邮箱不能为空，请填写一个邮箱地址。');
+      problems.push('email');
+    } else if (!EMAIL_RE.test(emailVal)) {
+      setError('email', '邮箱格式不完整：需要包含 @ 和一个域名，例如 name@example.com。你填的是「' + emailVal + '」。');
+      problems.push('email');
+    }
+
+    var sessionChecked = document.querySelector('input[name="session"]:checked');
+    if (!sessionChecked) {
+      setError('session', '活动场次还没有选择，请在周六上午场、周六下午场、周日全天中选一个。');
+      problems.push('session');
+    }
+
+    var countEl = document.getElementById('count');
+    var countVal = parseInt(countEl.value, 10);
+    if (isNaN(countVal) || countVal < 1 || countVal > 10) {
+      setError('count', '参与人数需要在 1 到 10 之间，请重新填写。');
+      problems.push('count');
+    }
+
+    var status = document.getElementById('form-status');
+    if (problems.length > 0) {
+      // C-08：错误摘要（每项可跳转）+ 焦点移入 + assertive 播报
+      var list = document.getElementById('error-list');
+      list.innerHTML = '';
+      problems.forEach(function (key) {
+        var li = document.createElement('li');
+        var a = document.createElement('a');
+        a.href = '#' + FIELD_META[key].focus;
+        a.textContent = FIELD_META[key].label + '：' + document.getElementById(key + '-error').textContent;
+        a.addEventListener('click', function (ev) {
+          ev.preventDefault();
+          var target = document.getElementById(FIELD_META[key].focus);
+          if (target) { target.focus(); }
+        });
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+      document.getElementById('error-count').textContent = problems.length;
+      var sum = document.getElementById('error-summary');
+      sum.hidden = false;
+      status.className = 'status-error';
+      status.setAttribute('aria-live', 'assertive');
+      status.textContent = '提交未通过，共 ' + problems.length + ' 处需要修改，第一处是' +
+        FIELD_META[problems[0]].label + '。修改建议已列在下方摘要中。';
+      sum.focus();
+      return false;
+    }
+
+    status.setAttribute('aria-live', 'polite');
+    var prefs = [];
+    var prefChecked = document.querySelectorAll('input[name="pref"]:checked');
+    for (var i = 0; i < prefChecked.length; i++) { prefs.push(prefChecked[i].value); }
+    // C-14：无服务端，措辞改为"演示任务完成"，不宣称真实报名成功
+    status.className = 'status-ok';
+    status.textContent = '演示任务完成（模拟提交，未发送到任何服务器）：已收到 ' + nameEl.value.trim() + ' 的报名信息，'
+      + '场次「' + sessionChecked.value + '」，参与人数 ' + countEl.value + ' 人'
+      + (prefs.length ? '，服务偏好：' + prefs.join('、') : '') + '。'
+      + '本页未向任何服务器发送数据，请勿填写真实个人信息。';
+    status.focus && status.focus();
+    return false;
+  }
+
+  document.getElementById('resetBtn').addEventListener('click', function () {
+    setTimeout(function () {
+      document.getElementById('count').value = 1;
+      clearErrorMarks();
+      announce('表单已重置，参与人数回到 1 人');
+    }, 0);
+  });
+
+  /* ================= 修复版自检（?selftest=1） =================
+     在真实 DOM 上验证修复是否真的生效。自动检查 ≠ 读屏实测。 */
+  if (/[?&]selftest=1/.test(location.search)) {
+    setTimeout(function () {
+      var R = [];
+      function ok(n, c, d) { R.push({ n: n, c: !!c, d: d || "" }); }
+      function q(s) { return document.querySelector(s); }
+      function qa(s) { return Array.prototype.slice.call(document.querySelectorAll(s)); }
+
+      var orphans = qa("#signup input, #signup textarea").filter(function (el) {
+        var t = (el.getAttribute("type") || "").toLowerCase();
+        if (/^(hidden|submit|button|reset)$/.test(t)) { return false; }
+        var id = el.getAttribute("id") || "";
+        return !(el.closest && el.closest("label")) && !q('label[for="' + id + '"]');
+      });
+      ok("F1 每个控件都有 label 关联", orphans.length === 0, orphans.map(function (e) { return e.id || e.name; }).join(","));
+      ok("F2 两个选项组都有 fieldset+legend", qa("#signup fieldset").length === 2 && qa("#signup legend").length === 2,
+        "fieldset=" + qa("#signup fieldset").length);
+      ok("F3 人数是原生 button + 真实 number 输入",
+        q("#step-dec").tagName.toLowerCase() === "button" && q("#step-inc").tagName.toLowerCase() === "button" &&
+        q("#count").type === "number" && q("#count").name === "count",
+        "dec=" + q("#step-dec").tagName + " inc=" + q("#step-inc").tagName + " carrier=" + (q("#count").name || "无"));
+
+      q("#step-inc").click(); q("#step-inc").click();
+      ok("F4 点两次增加后数值为 3 且进入 FormData", q("#count").value === "3" &&
+        new FormData(q("#signup")).get("count") === "3",
+        "value=" + q("#count").value + " FormData.count=" + new FormData(q("#signup")).get("count"));
+      ok("F5 人数变化被播报", /参与人数 3 人/.test(q("#count-announce").textContent), q("#count-announce").textContent);
+
+      q("#count").value = 1;
+      q("#signup").dispatchEvent(new Event("submit"));
+      var sum = q("#error-summary");
+      ok("F6 空提交出现错误摘要", sum.hidden === false && /共 \d+ 处/.test(q("#error-summary-title").textContent),
+        q("#error-summary-title").textContent);
+      ok("F7 摘要中每项都是可跳转链接", qa("#error-list a").length >= 2 &&
+        qa("#error-list a").every(function (a) { return /^#/.test(a.getAttribute("href")); }),
+        "链接数=" + qa("#error-list a").length);
+      ok("F8 提交后焦点落在错误摘要上", document.activeElement === sum,
+        "activeElement=" + (document.activeElement && (document.activeElement.id || document.activeElement.tagName)));
+      ok("F9 出错控件带 aria-invalid 且有文字原因",
+        q("#name").getAttribute("aria-invalid") === "true" && q("#name-error").classList.contains("shown") &&
+        q("#name-error").textContent.length > 8, q("#name-error").textContent);
+
+      var mailLink = qa("#error-list a").filter(function (a) { return a.getAttribute("href") === "#email"; })[0];
+      if (mailLink) { mailLink.click(); }
+      ok("F10 点摘要链接后焦点进入邮箱字段", document.activeElement === q("#email"),
+        "activeElement=" + (document.activeElement && document.activeElement.id));
+
+      q("#name").value = "测试同学";
+      q("#email").value = "bad-email";
+      q("#signup").dispatchEvent(new Event("submit"));
+      ok("F11 错误邮箱给出可执行的具体原因",
+        /邮箱格式不完整/.test(q("#email-error").textContent) && /bad-email/.test(q("#email-error").textContent),
+        q("#email-error").textContent);
+      ok("F12 校验规则未被放宽（缺 @ 仍不通过）", q("#email").getAttribute("aria-invalid") === "true");
+
+      q("#email").value = "demo@example.com";
+      q("#session-1").checked = true;
+      q("#pref-0") && (q("#pref-0").checked = true);
+      q("#signup").dispatchEvent(new Event("submit"));
+      var st = q("#form-status");
+      ok("F13 合法填写后成功播报", st.className === "status-ok" && st.textContent.length > 20, st.textContent.slice(0, 60));
+      ok("F14 结果措辞为演示任务完成、不宣称真实报名成功",
+        /^演示任务完成/.test(st.textContent) && !/报名成功|提交成功/.test(st.textContent));
+      ok("F15 结果声明未向服务器发送数据", /未向任何服务器发送数据/.test(st.textContent));
+      ok("F16 结果回显称呼/场次/人数", /测试同学/.test(st.textContent) && /周六上午场/.test(st.textContent) && /1 人/.test(st.textContent));
+      ok("F17 live region 到位", st.getAttribute("role") === "status" && st.getAttribute("aria-live") === "polite");
+      ok("F18 演示横幅在位", /演示环境，请勿填写真实个人信息/.test(q(".demo-banner").textContent));
+      var appScript = q("script").textContent.split("修复版自检")[0];
+      ok("F19 表单无 action、业务脚本内无网络请求 API",
+        q("#signup").getAttribute("action") === null &&
+        !/fetch|XMLHttpRequest|sendBeacon|WebSocket|EventSource/.test(appScript),
+        "action=" + q("#signup").getAttribute("action"));
+
+      var pre = document.createElement("pre");
+      pre.id = "selftest-result";
+      var pass = R.filter(function (r) { return r.c; }).length;
+      pre.textContent = "FIXED SELFTEST " + pass + "/" + R.length + "\n" +
+        R.map(function (r) { return (r.c ? "PASS  " : "FAIL  ") + r.n + (r.d ? "  «" + r.d + "»" : ""); }).join("\n");
+      document.body.appendChild(pre);
+      document.title = "FIXED SELFTEST " + pass + "/" + R.length;
+    }, 300);
+  }
+</script>
+</body>
+</html>

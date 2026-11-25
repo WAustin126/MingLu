@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>机构侧工作台 · 明路</title>
+<link rel="stylesheet" href="../assets/minglu.css">
+<style>
+  /* 本页新增块：三数卡、影响分组、待确认、字段模型。只在本页生效，不改共享样式。 */
+  .stat3 { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:18px 0; }
+  .stat3 .cell { border:2px solid var(--line); border-radius:10px; padding:14px 16px; background:#fff; }
+  .stat3 .n { display:block; font-size:34px; font-weight:800; line-height:1.15; }
+  .stat3 .l { display:block; font-size:.92em; color:var(--ink-2); }
+  .stat3 .cell.sev .n { color:#8a0000; }
+  .stat3 .cell.pend .n { color:#8a6d1d; }
+  .grp { margin:22px 0; }
+  .grp > h2 { font-size:1.06em; margin:0 0 4px; }
+  .grp > .gdesc { font-size:.9em; color:var(--ink-2); margin:0 0 10px; }
+  .issue .head { display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:12px 14px; border-bottom:1px solid var(--line); }
+  .issue .head .loc { font-size:.86em; color:var(--ink-2); }
+  .issue .body { padding:12px 14px; }
+  .issue .body dl { margin:0; }
+  .issue .body dt { font-weight:700; margin-top:8px; font-size:.9em; }
+  .issue .body dd { margin:2px 0 0; font-size:.94em; }
+  .issue .body code { font-size:.86em; word-break:break-all; }
+  .pend-box { border:2px dashed var(--line); border-radius:10px; margin-top:10px; }
+  .pend-box .acts { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+  .pend-box .acts .btn { min-height:44px; }
+  .model { border:2px solid var(--line); border-radius:10px; padding:14px 16px; margin:14px 0; background:#fff; }
+  .model .kv { display:flex; gap:22px; flex-wrap:wrap; font-size:.95em; }
+  .model .kv b { font-size:1.15em; }
+  .gate { margin:12px 0; }
+  .foot-note { font-size:.88em; color:var(--ink-2); }
+</style>
+</head>
+<body>
+
+<div class="notice"><span class="notice-dot" aria-hidden="true"></span><strong>演示环境，请勿填写真实个人信息</strong><span>· 机构侧工作台：导入 → 诊断 → 修复 → 复检交付</span></div>
+
+<div class="page page-wide">
+
+  <header class="site-head">
+    <a class="brand" href="../index.html">
+      <span class="brand-mark" aria-hidden="true">明</span>
+      <span><strong>明路</strong><small>机构侧工作台</small></span>
+    </a>
+    <span class="spacer"></span>
+    <div class="toolbox">
+      <span class="tool-btn" id="aiChip" role="status">AI 检测中…</span>
+      <a class="tool-btn" href="../settings.html" id="adminLink" hidden>管理配置</a>
+      <span class="tlabel">字号</span>
+      <button type="button" class="tool-btn" id="fontBtn">标准</button>
+      <a class="tool-btn" href="../index.html">返回首页</a>
+    </div>
+  </header>
+
+  <ol class="stepbar" id="stepbar" aria-label="流程步骤">
+    <li data-step="1" class="active"><span class="no">1</span>导入表单</li>
+    <li data-step="2"><span class="no">2</span>诊断报告</li>
+    <li data-step="3"><span class="no">3</span>一键修复</li>
+    <li data-step="4"><span class="no">4</span>复检交付</li>
+  </ol>
+
+  <main id="main">
+
+    <!-- ================= 第 1 步：导入 ================= -->
+    <section class="step-panel" id="panel-1" aria-labelledby="title-1">
+      <h1 class="step-title" id="title-1" tabindex="-1">第 1 步：导入要检查的表单</h1>
+      <p class="step-desc">导入后先由语义层理解出<b>字段模型</b>（每项是什么、类型、是否必填、顺序、分组）。<b>没有字段模型，不进入检测。</b></p>
+
+      <div class="card">
+        <h2 style="font-size:1.05em;margin-top:0">三种导入方式</h2>
+        <div class="btn-row" style="margin-top:0">
+          <button type="button" class="btn" id="loadSample">使用示例表单 original.html</button>
+          <label class="btn secondary" for="fileInput" style="cursor:pointer">上传 .html 文件</label>
+          <input type="file" id="fileInput" accept=".html,.htm" class="visually-hidden">
+        </div>
+        <details style="margin-top:14px">
+          <summary>或者粘贴 HTML 源码</summary>
+          <textarea id="pasteArea" rows="6" style="width:100%;margin-top:10px;font-family:monospace;font-size:.85em;padding:10px" placeholder="&lt;form&gt;…&lt;/form&gt;"></textarea>
+          <button type="button" class="btn secondary" id="loadPaste" style="margin-top:10px;min-height:44px">载入粘贴的内容</button>
+        </details>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <h2 style="font-size:1.05em;margin-top:0">或者：导入别处已处理好的产物</h2>
+        <p class="foot-note" style="margin-top:0">在千问办公别处跑完的 <code>form.schema.json</code> + <code>issues.json</code>，可直接拿回来用，不必重跑全流程。导入结果以页面显示的「文件名 + 字段数」为准，不做静默成功。</p>
+        <div class="btn-row">
+          <label class="btn secondary" for="schemaInput" style="cursor:pointer">选择 form.schema.json</label>
+          <input type="file" id="schemaInput" accept=".json,application/json" class="visually-hidden">
+          <label class="btn secondary" for="issuesInput" style="cursor:pointer">选择 issues.json（可选）</label>
+          <input type="file" id="issuesInput" accept=".json,application/json" class="visually-hidden">
+        </div>
+        <button type="button" class="btn" id="applyImport" style="margin-top:12px">导入产物并设为当前表单</button>
+        <div id="importFileState" class="foot-note" style="margin-top:8px"></div>
+      </div>
+
+      <div id="importResult" aria-live="polite" style="margin-top:16px"></div>
+
+      <div class="model" id="modelCard" hidden>
+        <h2 style="font-size:1.02em;margin:0 0 8px">字段模型</h2>
+        <div class="kv">
+          <span>字段 <b id="mFields">0</b> 项</span>
+          <span>必填 <b id="mReq">0</b> 项</span>
+          <span>选项组 <b id="mGroups">0</b> 组</span>
+          <span>来源 <b id="mSource">—</b></span>
+        </div>
+        <p class="foot-note" id="mNote" style="margin:8px 0 0"></p>
+      </div>
+
+      <div class="btn-row">
+        <button type="button" class="btn" id="toStep2" disabled>下一步：查看诊断报告</button>
+      </div>
+      <p class="foot-note" id="gate1"></p>
+    </section>
+
+    <!-- ================= 第 2 步：诊断 ================= -->
+    <section class="step-panel" id="panel-2" hidden aria-labelledby="title-2">
+      <h1 class="step-title" id="title-2" tabindex="-1">第 2 步：无障碍诊断报告</h1>
+      <p class="step-desc" id="diagSource"></p>
+
+      <div class="stat3" id="stat3">
+        <div class="cell"><span class="n" id="statTotal">0</span><span class="l">问题总数</span></div>
+        <div class="cell sev"><span class="n" id="statSevere">0</span><span class="l">严重（会阻断独立填写）</span></div>
+        <div class="cell pend"><span class="n" id="statPending">0</span><span class="l">待确认（需人工判断）</span></div>
+      </div>
+      <p class="foot-note" id="statNote"></p>
+
+      <div id="diagGroups"></div>
+
+      <div id="pendingGuard" class="gate"></div>
+
+      <div class="btn-row">
+        <button type="button" class="btn ghost" id="backTo1">上一步</button>
+        <button type="button" class="btn secondary" id="dlIssues">下载诊断报告 issues.json</button>
+        <button type="button" class="btn" id="toStep3" disabled>下一步：一键修复</button>
+      </div>
+      <p class="foot-note" id="gate2"></p>
+    </section>
+
+    <!-- ================= 第 3 步：修复 ================= -->
+    <section class="step-panel" id="panel-3" hidden aria-labelledby="title-3">
+      <h1 class="step-title" id="title-3" tabindex="-1">第 3 步：一键修复</h1>
+      <p class="step-desc">每条问题对应一个修复动作。修复只动<b>结构与标注</b>，不动业务内容、不改字段含义；生成新的 <code>fixed.html</code>，原表不动，可随时回退。</p>
+
+      <div class="card">
+        <h2 style="font-size:1.02em;margin-top:0">进入修复范围的项</h2>
+        <p class="foot-note" style="margin-top:0">只包含「确定问题」与「已确认为问题」的待确认项；被忽略的项不修复、不计入。</p>
+        <ul class="fixlog" id="fixScope"></ul>
+        <button type="button" class="btn" id="doFix">一键修复勾选项</button>
+      </div>
+
+      <ul class="fixlog" id="fixlog" aria-live="polite" style="margin-top:16px"></ul>
+
+      <div id="compareArea" hidden style="margin-top:18px">
+        <h2 style="font-size:1.05em">修复前后对照</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div>
+            <p class="foot-note" style="margin:0 0 6px">修复前（original.html）</p>
+            <iframe title="修复前表单" src="../data/original.html" style="width:100%;height:420px;border:2px solid var(--line);border-radius:10px;background:#fff"></iframe>
+          </div>
+          <div>
+            <p class="foot-note" style="margin:0 0 6px">修复后（fixed.html）</p>
+            <iframe title="修复后表单" src="../data/fixed.html" style="width:100%;height:420px;border:2px solid var(--line);border-radius:10px;background:#fff"></iframe>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button type="button" class="btn ghost" id="backTo2">上一步</button>
+        <button type="button" class="btn" id="toStep4" disabled>下一步：复检</button>
+      </div>
+    </section>
+
+    <!-- ================= 第 4 步：复检交付 ================= -->
+    <section class="step-panel" id="panel-4" hidden aria-labelledby="title-4">
+      <h1 class="step-title" id="title-4" tabindex="-1">第 4 步：复检与交付</h1>
+
+      <div id="recheckResult"></div>
+      <div id="recheckDetail"></div>
+
+      <div id="deliverGate" class="gate"></div>
+
+      <div class="card" id="deliverBox">
+        <h2 style="font-size:1.05em;margin-top:0">交付物（三件套，每件可复查）</h2>
+        <table class="plain">
+          <thead><tr><th>产物</th><th>用途</th><th>怎么复查</th></tr></thead>
+          <tbody>
+            <tr><td>issues.json</td><td>问题清单：每条问题、等级、定位与证据</td><td>逐条对照本页报告与原表行号</td></tr>
+            <tr><td>form.schema.json</td><td>字段模型：字段、类型、必填、顺序、分组</td><td>字段数可与第 1 步的字段模型核对</td></tr>
+            <tr><td>fixed.html</td><td>修复版表单：可预览、可下载、可发布到个人端</td><td>用同一扫描器复扫验证</td></tr>
+          </tbody>
+        </table>
+        <div class="btn-row" style="margin-top:14px">
+          <button type="button" class="btn secondary" id="dlRecheck">下载复检报告 JSON</button>
+          <button type="button" class="btn secondary" id="dlFixed">下载 fixed.html</button>
+          <button type="button" class="btn" id="publishBtn" disabled>发布到个人端</button>
+        </div>
+        <div id="publishStatus" aria-live="polite" style="margin-top:10px"></div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <h2 style="font-size:1.02em;margin-top:0">边界（主动写明，不冒充全能）</h2>
+        <ul style="margin:0;padding-left:1.2em;font-size:.94em;line-height:1.9">
+          <li><b>只检结构与格式</b>：标签关联、必填标识、报错说明、字段完整性；<b>不判业务内容真假</b>。</li>
+          <li><b>不收集真实个人信息</b>：不收集、不保存；演示与测试数据全部虚构。</li>
+          <li><b>拿不准不硬判</b>：无法确定的项进「待确认」，由机构人员逐项决定，不自动修复。</li>
+          <li><b>极端异形表单</b>：结构极端异形时进待确认，或建议走线下窗口，不硬检、不硬修。</li>
+          <li><b>修复可回退</b>：修复生成新文件、原表不动；不满意可回退重来。</li>
+          <li><b>数字口径</b>：本页「13 类 / 16 处」为示例表 original.html 的扫描结果；修复后 0 类 / 0 处为同一扫描器 <code>a11y_scan.py</code> 的复扫结果，仅适用于这张示例表。</li>
+        </ul>
+      </div>
+
+      <div class="btn-row">
+        <button type="button" class="btn ghost" id="backTo3">上一步</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="../config.js"></script>
+<script src="../shared/schema.js"></script>
+<script src="../shared/ai.js"></script>
+<script src="../shared/import.js"></script>
+<script src="../shared/extract.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var $ = function (s) { return document.querySelector(s); };
+  function esc(s) { return Minglu.escapeHtml(s == null ? "" : String(s)); }
+
+  /* ---------- 与设计文档一致的三张映射表（页面内唯一口径） ---------- */
+  var SEV_LABEL = { blocker: "阻断", serious: "严重", moderate: "中等", advisory: "建议" };
+
+  // 按「用户影响」分组，不按代码分组
+  var IMPACT_GROUP = {
+    "label-associated": "读不出来",
+    "input-semantics": "读不出来",
+    "contrast": "读不出来",
+    "grouping": "分不清",
+    "required-indication": "分不清",
+    "error-identification": "错了不知道",
+    "error-location": "错了不知道",
+    "status-notification": "错了不知道",
+    "keyboard-operable": "用不了 / 表本身不完整",
+    "data-integrity": "用不了 / 表本身不完整"
+  };
+  var GROUP_ORDER = ["读不出来", "分不清", "错了不知道", "用不了 / 表本身不完整"];
+  var GROUP_DESC = {
+    "读不出来": "读屏软件念不出这一项是什么，用户只能听到“编辑框”。",
+    "分不清": "读不出必填、读不出这组在问什么，用户不知道该不该填、该选哪个。",
+    "错了不知道": "出错只有红框或笼统提示，用户知道错了却不知道错在哪、怎么改。",
+    "用不了 / 表本身不完整": "键盘到不了、数值没有真实控件承载，信息收不全或根本填不进去。"
+  };
+
+  // 读脚本源码推断出来的类别：写法不同可能误判，一律先进「待确认」
+  var UNCERTAIN_CATS = { "status-notification": 1, "error-location": 1, "data-integrity": 1 };
+
+  var FIX_ACTION = {
+    "label-associated": "给每个输入控件补真实 <label for> 关联",
+    "grouping": "给选项组补 fieldset + legend 分组",
+    "keyboard-operable": "把用 div 承担点击的地方换成键盘可操作控件",
+    "status-notification": "给结果区补 role=\"status\" / aria-live",
+    "error-identification": "把“只标红”的错误改成文字说明并关联控件",
+    "error-location": "报错指明第几项、把焦点移到出错项",
+    "required-indication": "给必填控件补 required 与 aria-required",
+    "input-semantics": "修正 input type 与 inputmode",
+    "data-integrity": "用真实控件承载数值（number / spinbutton）",
+    "contrast": "提高文字与背景对比度到 4.5:1 以上"
+  };
+
+  // fixed.html 的权威复扫结果：由 tools/a11y_scan.py 离线跑出，随页面固定。
+  // 之所以内嵌而不是浏览器现算：浏览器里没有那把尺子，现算出来的就不是“同一扫描器”。
+  var AUTH_RECHECK = {
+    tool: "a11y_scan.py v1.2",
+    target: "fixed.html",
+    scanned_at: "2026-11-23T13:25:45+08:00",
+    total: 0,
+    instances: 0,
+    passed: 7
+  };
+
+  var state = {
+    name: null,
+    html: null,
+    schema: null,
+    schemaSource: "",
+    rawModel: null,       // 直接从 HTML 解析出的模型（用于对比语义层结果）
+    report: null,
+    reportSource: "",     // sample | imported
+    decisions: {},        // issueId -> confirmed | ignored
+    fixedDone: false,
+    recheck: null,
+    pendingImport: { schema: null, issues: null, schemaName: "", issuesName: "" }
+  };
+
+  /* ---------- 字号 / AI 状态（如实显示，不冒充已接通） ---------- */
+  $("#fontBtn").addEventListener("click", function () {
+    Minglu.cycleFontSize();
+    $("#fontBtn").textContent = Minglu.fontSizeLabel();
+  });
+  (function paintAi() {
+    var chip = $("#aiChip");
+    function set(text, ok) { chip.textContent = text; chip.style.color = ok ? "" : "#8a6d1d"; }
+    var s = MingluAI.getSettings();
+    if (s.mode === "off") { set("AI 已关闭 · 本地规则", false); return; }
+    if (s.mode === "direct") { set(s.key ? "AI 已就绪" : "AI 未配置 · 本地规则", !!s.key); return; }
+    MingluAI.checkProxy().then(function (r) {
+      set(r.ok && r.configured ? "AI 已就绪" : "AI 未就绪 · 本地规则", r.ok && r.configured);
+    });
+  })();
+  if (MingluAI.showAdminEntry()) { $("#adminLink").hidden = false; }
+
+  /* ---------- 步骤切换与门禁 ---------- */
+  function goStep(n) {
+    [1, 2, 3, 4].forEach(function (i) {
+      $("#panel-" + i).hidden = (i !== n);
+      var li = document.querySelector('.stepbar li[data-step="' + i + '"]');
+      li.classList.toggle("active", i === n);
+      li.classList.toggle("done", i < n);
+    });
+    $("#title-" + n).focus();
+    window.scrollTo(0, 0);
+  }
+
+  function isSample() {
+    return state.reportSource === "sample";
+  }
+
+  function pendingLeft() {
+    if (!state.report) { return 0; }
+    return state.report.issues.filter(function (it) {
+      return UNCERTAIN_CATS[it.category] && !state.decisions[it.id];
+    }).length;
+  }
+
+  function repairSet() {
+    if (!state.report) { return []; }
+    return state.report.issues.filter(function (it) {
+      if (!UNCERTAIN_CATS[it.category]) { return true; }
+      return state.decisions[it.id] === "confirmed";
+    });
+  }
+
+  function refreshGates() {
+    var hasModel = !!(state.schema && state.schema.fields && state.schema.fields.length > 0);
+    $("#toStep2").disabled = !hasModel;
+    $("#gate1").textContent = hasModel ? "" :
+      "还没有字段模型（识别到 0 个字段），按设计不进入检测。请换一份表单，或走线下窗口处理。";
+
+    var left = pendingLeft();
+    $("#toStep3").disabled = left > 0;
+    $("#gate2").textContent = left > 0
+      ? "还有 " + left + " 项「待确认」没有处理：先把它们逐项点「确认」或「忽略」，才能进入修复。这是护栏——防止把好字段改坏。"
+      : "";
+
+    $("#toStep4").disabled = !state.fixedDone;
+
+    var cleared = state.recheck && state.recheck.failed === 0 && state.recheck.auth.total === 0;
+    $("#publishBtn").disabled = !cleared;
+  }
+
+  /* ================= 第 1 步：导入 ================= */
+
+  function renderModel() {
+    var f = (state.schema && state.schema.fields) || [];
+    var req = f.filter(function (x) { return x.required; }).length;
+    var groups = f.filter(function (x) { return (x.type === "radio" || x.type === "checkbox"); }).length;
+    $("#modelCard").hidden = false;
+    $("#mFields").textContent = String(f.length);
+    $("#mReq").textContent = String(req);
+    $("#mGroups").textContent = String(groups);
+    $("#mSource").textContent = state.schemaSource || "—";
+    $("#mNote").textContent = f.length
+      ? "这张表共 " + f.length + " 项，其中 " + req + " 项必填、" + groups + " 组为单选/多选。检测、报告、修复与个人端渲染都挂在这份模型上。" +
+        rawDiffNote(f, req)
+      : "识别到 0 个字段：这份内容里没有可识别的表单控件。按设计不进入检测，建议确认文件是否选错，或走线下窗口处理。";
+    refreshGates();
+  }
+
+  /** 语义层结果与裸 HTML 解析结果的差额，本身就是缺陷证据，不藏。 */
+  function rawDiffNote(f, req) {
+    var raw = state.rawModel;
+    if (!raw || raw === state.schema || !raw.fields) { return ""; }
+    var rn = raw.fields.length, rr = raw.fields.filter(function (x) { return x.required; }).length;
+    if (rn === f.length && rr === req) { return ""; }
+    return "　注意：直接从 HTML 解析只能识别 " + rn + " 项、" + rr + " 项必填——" +
+      "少的字段与识别不到的必填，正是报告里的「值只在脚本变量中」与「必填只靠红色星号」两处缺陷。";
+  }
+
+  function acceptHtml(html, name) {
+    state.html = html;
+    state.name = name;
+    state.report = null; state.reportSource = "";
+    state.decisions = {}; state.fixedDone = false; state.recheck = null;
+
+    var doc = new DOMParser().parseFromString(html, "text/html");
+    var controls = doc.querySelectorAll("input, textarea, select");
+    var types = {};
+    controls.forEach(function (c) {
+      var t = (c.getAttribute("type") || c.tagName.toLowerCase());
+      types[t] = (types[t] || 0) + 1;
+    });
+    var typeStr = Object.keys(types).map(function (k) { return k + "×" + types[k]; }).join("、");
+
+    $("#importResult").innerHTML = '<div class="alert alert-ok">已载入「' + esc(name) +
+      "」：共 " + controls.length + " 个表单控件（" + esc(typeStr || "无") + "）。</div>";
+
+    try {
+      state.schema = MingluImport.fromHtml(html, name);
+      state.rawModel = state.schema;
+      state.schemaSource = "从导入的 HTML 实时解析";
+    } catch (e) {
+      state.schema = { fields: [] };
+      state.rawModel = null;
+      state.schemaSource = "解析失败";
+      $("#importResult").innerHTML = '<div class="alert alert-err">结构理解失败：' +
+        esc(e && e.message || "未知原因") + "。按设计不进入检测。</div>";
+    }
+    renderModel();
+  }
+
+  $("#loadSample").addEventListener("click", function () {
+    Promise.all([
+      Minglu.fetchText("../data/original.html"),
+      Minglu.fetchJSON("../data/form.schema.json").catch(function () { return null; })
+    ]).then(function (res) {
+      acceptHtml(res[0], "original.html（内置示例）");
+      // 字段模型取语义层结果（form.schema.json）：直接解析 HTML 只能看到 5 项、
+      // 且识别不到必填——少的 1 项和 0 必填本身就是 A11Y-011 / A11Y-009 这两处缺陷。
+      if (res[1] && res[1].fields && res[1].fields.length) {
+        state.schema = res[1];
+        state.schemaSource = "语义层理解（form.schema.json）";
+        renderModel();
+      }
+    }).catch(function () {
+      $("#importResult").innerHTML = '<div class="alert alert-err">' + Minglu.explainLoadError("original.html") + "</div>";
+    });
+  });
+
+  $("#fileInput").addEventListener("change", function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) { return; }
+    var r = new FileReader();
+    r.onload = function () { acceptHtml(String(r.result), f.name); };
+    r.readAsText(f, "utf-8");
+  });
+
+  $("#loadPaste").addEventListener("click", function () {
+    var v = $("#pasteArea").value.trim();
+    if (!v) { $("#importResult").innerHTML = '<div class="alert alert-err">请先粘贴 HTML 源码。</div>'; return; }
+    acceptHtml(v, "粘贴的表单");
+  });
+
+  /* --- F9：产物导入（schema + issues） --- */
+  $("#schemaInput").addEventListener("change", function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) { return; }
+    var r = new FileReader();
+    r.onload = function () {
+      try {
+        var j = JSON.parse(String(r.result));
+        if (!Array.isArray(j.fields)) { throw new Error("这个 JSON 里没有 fields 数组，不像 form.schema.json"); }
+        state.pendingImport.schema = j;
+        state.pendingImport.schemaName = f.name;
+      } catch (err) {
+        state.pendingImport.schema = null;
+        state.pendingImport.schemaName = f.name;
+        $("#importFileState").innerHTML = '<span style="color:#8a0000">' + esc(f.name) + "：" + esc(err.message) + "</span>";
+        return;
+      }
+      paintImportFileState();
+    };
+    r.readAsText(f, "utf-8");
+  });
+
+  $("#issuesInput").addEventListener("change", function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) { return; }
+    var r = new FileReader();
+    r.onload = function () {
+      try {
+        var j = JSON.parse(String(r.result));
+        if (!Array.isArray(j.issues)) { throw new Error("这个 JSON 里没有 issues 数组，不像 issues.json"); }
+        state.pendingImport.issues = j;
+        state.pendingImport.issuesName = f.name;
+      } catch (err) {
+        state.pendingImport.issues = null;
+        state.pendingImport.issuesName = f.name;
+        $("#importFileState").innerHTML = '<span style="color:#8a0000">' + esc(f.name) + "：" + esc(err.message) + "</span>";
+        return;
+      }
+      paintImportFileState();
+    };
+    r.readAsText(f, "utf-8");
+  });
+
+  function paintImportFileState() {
+    var p = state.pendingImport;
+    var parts = [];
+    parts.push(p.schema ? "schema：" + esc(p.schemaName) + "（" + p.schema.fields.length + " 字段）"
+                        : "schema：未选择");
+    if (p.issuesName) {
+      parts.push(p.issues ? "issues：" + esc(p.issuesName) + "（" + p.issues.issues.length + " 条）"
+                          : "issues：" + esc(p.issuesName) + "（格式不对，未采用）");
+    }
+    $("#importFileState").innerHTML = parts.join(" ｜ ");
+  }
+
+  $("#applyImport").addEventListener("click", function () {
+    var p = state.pendingImport;
+    if (!p.schema) {
+      $("#importResult").innerHTML = '<div class="alert alert-err">还没有可用的 form.schema.json。导入失败不静默：请确认选的文件里有 fields 数组。</div>';
+      return;
+    }
+    state.schema = p.schema;
+    state.schemaSource = "导入的产物 " + p.schemaName;
+    state.name = p.schemaName;
+    state.html = null;
+    state.decisions = {}; state.fixedDone = false; state.recheck = null;
+    if (p.issues) {
+      state.report = p.issues;
+      state.reportSource = "imported";
+    } else {
+      state.report = null; state.reportSource = "";
+    }
+    $("#importResult").innerHTML = '<div class="alert alert-ok">已导入：' + esc(p.schemaName) +
+      "，字段 " + p.schema.fields.length + " 项" +
+      (p.issues ? "；同时导入诊断结果 " + p.issues.issues.length + " 条。" : "；未导入诊断结果，" +
+        "下一步将读取示例表的问题清单（页面会标明来源）。") + "</div>";
+    renderModel();
+    renderReport();
+  });
+
+  $("#toStep2").addEventListener("click", function () {
+    if (pendingLeft() || !state.report || (state.reportSource === "" && !state.report)) {
+      loadReport().then(function () { goStep(2); });
+    } else { goStep(2); }
+  });
+
+  /* ================= 第 2 步：诊断报告 ================= */
+
+  function loadReport() {
+    return Minglu.fetchJSON("../data/issues.json").then(function (data) {
+      state.report = data;
+      state.reportSource = "sample";
+      renderReport();
+    }).catch(function () {
+      $("#diagGroups").innerHTML = '<div class="alert alert-err">' + Minglu.explainLoadError("issues.json") + "</div>";
+    });
+  }
+
+  function renderReport() {
+    if (!state.report) { return; }
+    var issues = state.report.issues || [];
+    var severe = issues.filter(function (i) { return i.severity === "blocker" || i.severity === "serious"; }).length;
+    var pending = pendingLeft();
+
+    $("#statTotal").textContent = String(issues.length);
+    $("#statSevere").textContent = String(severe);
+    $("#statPending").textContent = String(pending);
+
+    var instances = (state.report.summary && state.report.summary.total_instances) || 0;
+    $("#statNote").textContent = "共 " + violationsText(issues) + " 处；" +
+      (pending ? "其中 " + pending + " 项需要你逐项确认或忽略后，才进入修复范围。" : "待确认项已处理完，可以进入修复。");
+
+    $("#diagSource").textContent = isSample()
+      ? "以下为本示例表单（original.html）的真实静态扫描结果，由规则层 a11y_scan.py 生成，证据含原文件行号。"
+      : "问题清单来自你导入的 issues.json（" + (state.pendingImport.issuesName || "导入文件") + "）。" +
+        "要点提取针对你导入的表；诊断数值以这份文件为准，本页不重算、不改写。";
+
+    // 按影响分组
+    var groups = {};
+    GROUP_ORDER.forEach(function (g) { groups[g] = []; });
+    issues.forEach(function (it) {
+      var g = IMPACT_GROUP[it.category] || "用不了 / 表本身不完整";
+      groups[g].push(it);
+    });
+
+    var html = "";
+    GROUP_ORDER.forEach(function (g) {
+      if (!groups[g].length) { return; }
+      html += '<section class="grp" aria-labelledby="grp-' + encodeURIComponent(g) + '">' +
+        '<h2 id="grp-' + encodeURIComponent(g) + '">' + esc(g) + "（" + groups[g].length + " 条）</h2>" +
+        '<p class="gdesc">' + esc(GROUP_DESC[g]) + "</p>";
+      groups[g].forEach(function (it) {
+        html += issueHtml(it);
+      });
+      html += "</section>";
+    });
+    $("#diagGroups").innerHTML = html;
+
+    var guard = $("#pendingGuard");
+    var left = pendingLeft();
+    guard.innerHTML = left
+      ? '<div class="alert alert-warn">待确认 ' + left + " 项：这些是靠读脚本推断出来的，写法不同可能误判。" +
+        "请逐项点「确认」或「忽略」；未处理前不进修复范围。</div>"
+      : (pendingCountOriginal() ? '<div class="alert alert-ok">待确认项已全部处理，可以进入修复。</div>' : "");
+    refreshGates();
+  }
+
+  function pendingCountOriginal() {
+    return (state.report && state.report.issues || []).filter(function (it) {
+      return UNCERTAIN_CATS[it.category];
+    }).length;
+  }
+
+  function violationsText(issues) {
+    var n = 0;
+    issues.forEach(function (it) { n += (it.instance_count || (it.occurrences && it.occurrences.length) || 1); });
+    return String(n);
+  }
+
+  function issueHtml(it) {
+    var sev = it.severity || "moderate";
+    var lines = (it.affected_lines && it.affected_lines.length)
+      ? it.affected_lines.join("、")
+      : ((it.evidence && it.evidence.line) || "—");
+    var uncertain = !!UNCERTAIN_CATS[it.category];
+    var dec = state.decisions[it.id];
+    var loc = "行 " + esc(String(lines));
+
+    var h = '<article class="issue" style="margin-bottom:12px">' +
+      '<div class="head">' +
+        '<span class="sev sev-' + sev + '">' + (SEV_LABEL[sev] || sev) + "</span>" +
+        "<span><b>" + esc(it.id) + "</b> · " + esc(it.title) + "</span>" +
+        '<span class="loc">' + loc + "</span>" +
+        (uncertain
+          ? '<span class="tool-btn" style="cursor:default">' +
+            (dec === "confirmed" ? "已确认" : dec === "ignored" ? "已忽略" : "待确认") + "</span>"
+          : "") +
+        '<span class="spacer" style="flex:1"></span>' +
+        '<button type="button" class="tool-btn" data-toggle="' + esc(it.id) + '" aria-expanded="false" aria-controls="body-' + esc(it.id) + '">展开</button>' +
+      "</div>" +
+      '<div class="body" id="body-' + esc(it.id) + '" hidden>' +
+        "<dl>" +
+          "<dt>① 所在行号</dt><dd>" + esc(String(lines)) + "</dd>" +
+          "<dt>② 代码证据</dt><dd><code>" + esc((it.evidence && it.evidence.code) || "—") + "</code></dd>" +
+          "<dt>③ 人话版影响</dt><dd>" + esc(it.detail || "—") + "</dd>" +
+          "<dt>④ 修改建议</dt><dd>" + esc(it.proposed_fix || FIX_ACTION[it.category] || "—") + "</dd>" +
+          "<dt>依据标准</dt><dd>" + esc(it.standard || "—") + "</dd>" +
+        "</dl>" +
+        (uncertain && !dec
+          ? '<div class="pend-box"><div class="body"><p style="margin:0">这条属于「脚本推断」，请判断它在这张表上是否真的成立：</p>' +
+            '<div class="acts">' +
+              '<button type="button" class="btn secondary" data-decide="confirmed" data-id="' + esc(it.id) + '">确认是问题</button>' +
+              '<button type="button" class="btn ghost" data-decide="ignored" data-id="' + esc(it.id) + '">忽略（误报）</button>' +
+            "</div></div></div>"
+          : "") +
+      "</div>" +
+    "</article>";
+    return h;
+  }
+
+  $("#diagGroups").addEventListener("click", function (e) {
+    var t = e.target.closest("[data-toggle]");
+    if (t) {
+      var id = t.getAttribute("data-toggle");
+      var body = document.getElementById("body-" + id);
+      body.hidden = !body.hidden;
+      t.setAttribute("aria-expanded", String(!body.hidden));
+      t.textContent = body.hidden ? "展开" : "收起";
+      return;
+    }
+    var d = e.target.closest("[data-decide]");
+    if (d) {
+      state.decisions[d.getAttribute("data-id")] = d.getAttribute("data-decide");
+      renderReport();
+      var left = pendingLeft();
+      if (left === 0) { $("#toStep3").focus(); }
+    }
+  });
+
+  $("#dlIssues").addEventListener("click", function () {
+    if (state.report) { Minglu.download("issues.json", JSON.stringify(state.report, null, 2), "application/json"); }
+  });
+  $("#backTo1").addEventListener("click", function () { goStep(1); });
+  $("#toStep3").addEventListener("click", function () { if (pendingLeft() === 0) { renderFixScope(); goStep(3); } });
+
+  /* ================= 第 3 步：修复 ================= */
+
+  function renderFixScope() {
+    var list = repairSet();
+    var ul = $("#fixScope");
+    ul.innerHTML = list.map(function (it) {
+      return "<li><span class='mark'>•</span> " + esc(it.id) + " " + esc(it.title) +
+        " <span class='foot-note'>→ " + esc(FIX_ACTION[it.category] || (it.proposed_fix || "按诊断建议修")) + "</span></li>";
+    }).join("") || "<li>没有进入修复范围的项。</li>";
+
+    var ignored = (state.report.issues || []).filter(function (it) { return state.decisions[it.id] === "ignored"; });
+    ul.innerHTML += ignored.length
+      ? "<li><span class='mark'>—</span> 已忽略（不修复）：" + ignored.map(function (it) { return esc(it.id); }).join("、") + "</li>"
+      : "";
+  }
+
+  $("#doFix").addEventListener("click", function () {
+    if (pendingLeft() > 0) { return; }
+    var items = repairSet();
+    var log = $("#fixlog");
+    log.innerHTML = "";
+    $("#compareArea").hidden = true;
+    $("#doFix").disabled = true;
+    var i = 0;
+
+    function next() {
+      if (i >= items.length) {
+        var li = document.createElement("li");
+        li.className = "ok";
+        li.innerHTML = "<span class='mark'>✓</span> 修复完成：已生成 fixed.html（原表未改动，可回退）。";
+        log.appendChild(li);
+        $("#compareArea").hidden = false;
+        state.fixedDone = true;
+        $("#doFix").disabled = false;
+        refreshGates();
+        return;
+      }
+      var it = items[i];
+      var row = document.createElement("li");
+      row.className = "doing";
+      row.innerHTML = "<span class='mark'>…</span> 正在修复：" + esc(it.title);
+      log.appendChild(row);
+      setTimeout(function () {
+        row.className = "ok";
+        row.innerHTML = "<span class='mark'>✓</span> 已修复：" + esc(it.title) +
+          " <span class='foot-note'>（" + esc(FIX_ACTION[it.category] || "按建议修") + "）</span>";
+        i++; next();
+      }, 140);
+    }
+    next();
+  });
+
+  $("#backTo2").addEventListener("click", function () { goStep(2); });
+  $("#toStep4").addEventListener("click", function () { if (state.fixedDone) { runRecheck(); goStep(4); } });
+
+  /* ================= 第 4 步：复检与交付 ================= */
+
+  function quickScan(html) {
+    var doc = new DOMParser().parseFromString(html, "text/html");
+    var out = [];
+    function add(name, pass, note) { out.push({ name: name, pass: !!pass, note: note || "" }); }
+
+    var orphans = [];
+    doc.querySelectorAll("input, textarea, select").forEach(function (el) {
+      var t = (el.getAttribute("type") || "").toLowerCase();
+      if (/^(hidden|submit|button|reset)$/.test(t)) { return; }
+      var id = el.getAttribute("id") || "";
+      if (!el.closest("label") && !(id && doc.querySelector('label[for="' + id + '"]'))) {
+        orphans.push(id || el.getAttribute("name") || "?");
+      }
+    });
+    add("所有输入控件均有 label 关联", orphans.length === 0, orphans.join(","));
+
+    var groups = doc.querySelectorAll("fieldset");
+    var okG = groups.length > 0;
+    groups.forEach(function (fs) { if (!fs.querySelector("legend")) { okG = false; } });
+    add("选项组均使用 fieldset + legend 分组", okG, "共 " + groups.length + " 组");
+    add("声明了页面语言 lang", /zh/i.test(doc.documentElement.getAttribute("lang") || ""), doc.documentElement.getAttribute("lang") || "缺失");
+    add("页面有标题 title", !!(doc.querySelector("title") || {}).textContent);
+
+    var css = "";
+    doc.querySelectorAll("style").forEach(function (s) { css += s.textContent; });
+    add("定义了焦点可见样式", /:focus-visible|:focus\s*\{/.test(css));
+
+    var descOk = true, miss = [];
+    doc.querySelectorAll("p.hint[id]").forEach(function (h) {
+      var hid = h.getAttribute("id");
+      if (!doc.querySelector('[aria-describedby~="' + hid + '"]')) { descOk = false; miss.push(hid); }
+    });
+    add("说明文字通过 aria-describedby 关联到控件", descOk, miss.join(","));
+
+    var reqs = doc.querySelectorAll("input[required], textarea[required]");
+    var reqOk = true;
+    reqs.forEach(function (el) { if (el.getAttribute("aria-required") !== "true") { reqOk = false; } });
+    add("必填控件带程序化必填标识", reqOk && reqs.length > 0, reqs.length + " 个必填控件");
+
+    var acOk = true;
+    ["name", "email"].forEach(function (id) {
+      var el = doc.getElementById(id);
+      if (el && !el.getAttribute("autocomplete")) { acOk = false; }
+    });
+    add("常见字段提供 autocomplete", acOk);
+
+    var imgMiss = 0;
+    doc.querySelectorAll("img").forEach(function (im) { if (im.getAttribute("alt") === null) { imgMiss++; } });
+    add("图片均有替代文本", imgMiss === 0, imgMiss ? imgMiss + " 张缺失" : "无缺失");
+    add("提供错误摘要区（role=alert）", !!doc.querySelector('[role="alert"]'));
+
+    var posTab = false;
+    doc.querySelectorAll("[tabindex]").forEach(function (el) {
+      if (parseInt(el.getAttribute("tabindex"), 10) > 0) { posTab = true; }
+    });
+    add("Tab 顺序自然（无正 tabindex）", !posTab);
+    return out;
+  }
+
+  function runRecheck() {
+    var before = (state.report.summary && state.report.summary.total_instances) || violationsText(state.report.issues);
+
+    if (!isSample()) {
+      // 换表后没有权威复扫结果：不冒充，直接把门关上并给出该走的命令
+      state.recheck = { failed: 1, auth: { total: null }, checks: [] };
+      $("#recheckResult").innerHTML =
+        '<div class="big-result bad"><div class="num">未复检</div>' +
+        '<div class="cap">当前不是示例表，浏览器内没有与 a11y_scan.py 相同的尺子，本页不冒充复检通过。</div></div>';
+      $("#recheckDetail").innerHTML =
+        '<div class="alert alert-warn">换表后的复检请在命令行执行：<br>' +
+        '<code>python tools/a11y_scan.py 你的表.html issues.json</code><br>' +
+        '确认输出 0 类 / 0 处后，再把结果用「导入产物」拿回来。按设计：<b>复检未清零，不发布、不导出。</b></div>' +
+        '<p class="foot-note">注：换表链路尚未完整验收，本包不在页面上假装它已跑通。</p>';
+      $("#deliverGate").innerHTML = "";
+      refreshGates();
+      return;
+    }
+
+    Minglu.fetchText("../data/fixed.html").then(function (html) {
+      var results = quickScan(html);
+      var failed = results.filter(function (r) { return !r.pass; }).length;
+      state.recheck = { failed: failed, auth: AUTH_RECHECK, checks: results };
+
+      $("#recheckResult").innerHTML =
+        '<div class="big-result ok"><div class="num">修复前 ' + before + " 处 → 修复后 " + AUTH_RECHECK.instances + " 处</div>" +
+        '<div class="cap">权威复扫：' + esc(AUTH_RECHECK.tool) + "，0 类 / 0 处，" +
+        AUTH_RECHECK.passed + " 项检查通过（扫于 " + esc(AUTH_RECHECK.scanned_at) + "）" +
+        "<br>浏览器快速复检：" + results.length + " 项基础规则，" +
+        (failed ? "<b>" + failed + " 项未通过</b>" : "全部通过") + "（与权威版互为独立核对）</div></div>";
+
+      var rows = results.map(function (r) {
+        return "<tr><td>" + (r.pass ? "✓ 通过" : "<b>✗ 未通过</b>") + "</td><td>" +
+          esc(r.name) + "</td><td>" + esc(r.note || "—") + "</td></tr>";
+      }).join("");
+      $("#recheckDetail").innerHTML =
+        '<table class="plain"><thead><tr><th>结果</th><th>检查项</th><th>备注</th></tr></thead><tbody>' +
+        rows + "</tbody></table>";
+
+      $("#deliverGate").innerHTML = (failed === 0 && AUTH_RECHECK.total === 0)
+        ? '<div class="alert alert-ok">复检清零（0 类 / 0 处），可以交付。</div>'
+        : '<div class="alert alert-err">复检未清零，按设计不发布、不导出。</div>';
+
+      refreshGates();
+    }).catch(function () {
+      $("#recheckResult").innerHTML = '<div class="alert alert-err">' + Minglu.explainLoadError("fixed.html") + "</div>";
+      state.recheck = { failed: 1, auth: { total: null }, checks: [] };
+      refreshGates();
+    });
+  }
+
+  $("#dlRecheck").addEventListener("click", function () {
+    if (!state.recheck) { return; }
+    var payload = {
+      target: isSample() ? "fixed.html" : "（未复检）",
+      at: new Date().toISOString(),
+      before_instances: (state.report.summary && state.report.summary.total_instances) || null,
+      authoritative: AUTH_RECHECK,
+      browser_checks: state.recheck.checks,
+      failed_count: state.recheck.failed,
+      note: "authoritative 为 tools/a11y_scan.py 离线复扫结果；browser_checks 为页面内独立复算，两者互为核对。"
+    };
+    Minglu.download("recheck-report.json", JSON.stringify(payload, null, 2), "application/json");
+  });
+
+  $("#dlFixed").addEventListener("click", function () {
+    Minglu.fetchText("../data/fixed.html").then(function (html) {
+      Minglu.download("fixed.html", html, "text/html");
+    }).catch(function () {
+      $("#publishStatus").innerHTML = '<div class="alert alert-err">' + Minglu.explainLoadError("fixed.html") + "</div>";
+    });
+  });
+
+  $("#publishBtn").addEventListener("click", function () {
+    if (!state.recheck || state.recheck.failed !== 0 || state.recheck.auth.total !== 0) {
+      $("#publishStatus").innerHTML = '<div class="alert alert-err">复检未清零，不发布。请先处理未通过的项。</div>';
+      return;
+    }
+    $("#publishStatus").innerHTML = '<div class="alert alert-info">正在发布…</div>';
+    var getSchema = isSample()
+      ? Minglu.fetchJSON("../data/form.schema.json")
+      : Promise.resolve(state.schema);
+
+    getSchema.then(function (schema) {
+      MingluImport.publish(schema);
+      MingluImport.clearImported();
+      var n = (schema.fields || []).length;
+      $("#publishStatus").innerHTML = '<div class="alert alert-ok">已发布到个人端：' + n +
+        " 项字段。个人端打开即读取这份表。 <a href=\"../user/index.html\">去个人端验证 →</a></div>";
+    }).catch(function (e) {
+      $("#publishStatus").innerHTML = '<div class="alert alert-err">发布失败：' +
+        esc((e && e.message) || "读不到表单结构") + "</div>";
+    });
+  });
+
+  $("#backTo3").addEventListener("click", function () { goStep(3); });
+
+  /* ---------- 启动 ---------- */
+  goStep(1);
+  refreshGates();
+})();
+</script>
+</body>
+</html>

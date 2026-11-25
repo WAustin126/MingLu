@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="user-side">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>个人侧陪填台 · 明路</title>
+<link rel="stylesheet" href="../assets/minglu.css">
+<style>
+  .source-bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+  .source-chip {
+    display:inline-flex; align-items:center; gap:8px; padding:8px 14px;
+    background:var(--soft); border:1px solid var(--line); border-radius:10px;
+    font-size:.82rem; color:var(--green); font-weight:700;
+  }
+  .ai-chip { cursor:pointer; text-decoration:none; }
+  .ai-chip.warn { background:#fff6e5; color:#8a6d1d; border-color:#e3cf9a; }
+  .ai-answer {
+    margin-top:16px; padding:16px 18px; border-radius:12px;
+    background:var(--wash); border-left:4px solid var(--green);
+    font-size:.95rem; line-height:1.85; color:var(--ink);
+  }
+  .ai-answer:empty { display:none; }
+  .ai-answer .who { display:block; font-size:.76rem; font-weight:700; color:var(--green); margin-bottom:6px; }
+  dialog.import-dlg { max-width:660px; width:calc(100% - 32px); border:1px solid var(--line); border-radius:20px; padding:26px; background:var(--paper); color:var(--ink); }
+  dialog.import-dlg::backdrop { background:#1b312b66; }
+  dialog.import-dlg h2 { font-size:1.3rem; margin-bottom:8px; }
+  .dlg-tabs { display:flex; gap:8px; margin:16px 0; flex-wrap:wrap; }
+  .dlg-tabs button { padding:9px 14px; border:1px solid var(--line); border-radius:9px; background:var(--paper); font-size:.85rem; font-weight:600; }
+  .dlg-tabs button[aria-selected="true"] { background:var(--green); color:#fff; border-color:var(--green); }
+  .dlg-pane textarea { width:100%; min-height:130px; padding:14px; border:1px solid #8b9e91; border-radius:10px; font-family:inherit; font-size:.92rem; }
+  .dlg-pane input[type="file"] { width:100%; padding:10px; border:1px solid var(--line); border-radius:9px; font-size:.85rem; background:var(--bg); }
+  .shortcut-note { font-size:.76rem; color:var(--muted); margin-top:12px; }
+</style>
+</head>
+<body>
+
+<div class="notice"><span class="notice-dot" aria-hidden="true"></span><strong>演示环境，请勿填写真实个人信息</strong><span>· 填写内容只保存在当前浏览器</span></div>
+
+<div class="page">
+
+  <header class="site-head">
+    <a class="brand" href="../index.html">
+      <span class="brand-mark" aria-hidden="true">明</span>
+      <span><strong>明路</strong><small>个人侧陪填台</small></span>
+    </a>
+    <span class="spacer"></span>
+    <div class="toolbox">
+      <span class="tool-btn ai-chip" id="aiChip" role="status">AI 检测中…</span>
+      <span class="tlabel">字号</span>
+      <button type="button" class="tool-btn" id="fontBtn">标准</button>
+      <span class="tlabel">朗读</span>
+      <button type="button" class="tool-btn" id="ttsBtn" aria-pressed="false">关闭</button>
+    </div>
+  </header>
+
+  <ol class="stepbar" id="stepbar" aria-label="流程步骤">
+    <li data-step="1" class="active"><span class="no">1</span>读表清单</li>
+    <li data-step="2"><span class="no">2</span>逐项填写</li>
+    <li data-step="3"><span class="no">3</span>当场校验</li>
+    <li data-step="4"><span class="no">4</span>整表查错</li>
+    <li data-step="5"><span class="no">5</span>核对提交</li>
+  </ol>
+
+  <main id="main">
+
+    <!-- ============ 步骤 1：读表清单 ============ -->
+    <section class="step-panel" id="panel-1" aria-labelledby="title-1">
+      <h1 class="step-title" id="title-1" tabindex="-1">第 1 步：先听这张表要填什么</h1>
+
+      <div class="source-bar">
+        <span class="source-chip" id="sourceChip">正在读取表单…</span>
+        <button type="button" class="btn secondary" id="openImport" style="min-height:44px;padding:9px 16px;font-size:.85rem">导入我自己的表格</button>
+        <button type="button" class="btn ghost" id="useSample" style="min-height:44px;padding:9px 16px;font-size:.85rem">改用示例表</button>
+      </div>
+
+      <div id="overviewArea" aria-live="polite"></div>
+      <div id="fieldList"></div>
+      <div class="btn-row">
+        <button type="button" class="btn" id="startFill" disabled>开始填写</button>
+      </div>
+    </section>
+
+    <!-- ============ 步骤 2/3：逐项填写（当场校验内联） ============ -->
+    <section class="step-panel" id="panel-2" hidden aria-labelledby="title-2">
+      <h1 class="step-title" id="title-2" tabindex="-1">第 2 步：一项一项填</h1>
+
+      <div id="fieldAlert" aria-live="assertive"></div>
+
+      <div class="field-stage" id="fieldStage"></div>
+
+      <div class="btn-row" style="margin-top:16px">
+        <button type="button" class="btn secondary" id="aiExplain" style="min-height:48px">让 AI 讲清这一项</button>
+        <button type="button" class="btn ghost" id="readLocal" style="min-height:48px">听原表说明</button>
+      </div>
+      <p class="progress-note" id="aiNote" hidden style="margin-top:8px">AI 讲解接口已预留，本机未接通；这一项先点「听原表说明」，念的是表单里预先写好的说明。</p>
+      <div class="ai-answer" id="aiAnswer" aria-live="polite"></div>
+
+      <div class="progress-note" id="progressNote"></div>
+      <div class="progress-track" aria-hidden="true"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+      <div class="btn-row">
+        <button type="button" class="btn ghost" id="prevField">上一项</button>
+        <button type="button" class="btn" id="nextField">下一项</button>
+      </div>
+      <p class="shortcut-note">键盘快捷键：Alt + N 下一项，Alt + P 上一项，Alt + A 让 AI 解释，Alt + R 朗读原表说明。</p>
+    </section>
+
+    <!-- ============ 步骤 4：整表查错 ============ -->
+    <section class="step-panel" id="panel-4" hidden aria-labelledby="title-4">
+      <h1 class="step-title" id="title-4" tabindex="-1">第 4 步：检查整张表</h1>
+      <p class="step-desc">点下面的按钮，把整张表再查一遍。查出的问题可以直接跳回去改。</p>
+
+      <div class="btn-row" style="margin-top:0">
+        <button type="button" class="btn" id="doCheck">检查整张表</button>
+      </div>
+      <div id="checkResult" aria-live="polite"></div>
+
+      <div class="btn-row">
+        <button type="button" class="btn ghost" id="checkBack">返回继续填写</button>
+        <button type="button" class="btn" id="toReview" disabled>下一步：核对并提交</button>
+      </div>
+    </section>
+
+    <!-- ============ 步骤 5：核对提交 ============ -->
+    <section class="step-panel" id="panel-5" hidden aria-labelledby="title-5">
+      <h1 class="step-title" id="title-5" tabindex="-1">第 5 步：最后核对，由你亲自提交</h1>
+
+      <div class="alert alert-info" role="note">
+        明路<strong>不会替你提交</strong>。请核对下面的内容，确认无误后由你自己点提交按钮。
+      </div>
+
+      <ul class="review-list" id="reviewList"></ul>
+
+      <div id="submitStatus" aria-live="polite"></div>
+
+      <div class="btn-row">
+        <button type="button" class="btn ghost" id="reviewBack">返回修改</button>
+        <button type="button" class="btn" id="finalSubmit">提交</button>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-foot">
+    明路 · 个人侧陪填台 · 填写内容只保存在当前浏览器内存中，不向任何服务器发送；AI 只在需要时解释字段，不上传你的填写内容。
+  </footer>
+</div>
+
+<!-- ============ 导入表格对话框 ============ -->
+<dialog class="import-dlg" id="importDialog" aria-labelledby="importTitle">
+  <h2 id="importTitle">导入我自己的表格</h2>
+  <p class="step-desc" style="margin-bottom:0">四种方式任选：上传网页表格文件、粘贴网页源码、粘贴表格文字，或上传表单照片（后两种可让 AI 帮你整理）。</p>
+
+  <div class="dlg-tabs" role="tablist">
+    <button type="button" role="tab" aria-selected="true" data-pane="file">上传 .html 文件</button>
+    <button type="button" role="tab" aria-selected="false" data-pane="html">粘贴网页源码</button>
+    <button type="button" role="tab" aria-selected="false" data-pane="text">粘贴表格文字（AI）</button>
+    <button type="button" role="tab" aria-selected="false" data-pane="image">上传表单照片（AI）</button>
+  </div>
+
+  <div class="dlg-pane" id="pane-file">
+    <input type="file" id="importFile" accept=".html,.htm">
+    <p class="step-desc" style="font-size:.8em;margin-top:10px">本地解析，不联网，不需要 Key。</p>
+  </div>
+  <div class="dlg-pane" id="pane-html" hidden>
+    <textarea id="importHtml" placeholder="&lt;form&gt;…&lt;/form&gt;"></textarea>
+    <p class="step-desc" style="font-size:.8em;margin-top:10px">本地解析，不联网，不需要 Key。</p>
+  </div>
+  <div class="dlg-pane" id="pane-image" hidden>
+    <input type="file" id="importImage" accept="image/*">
+    <p class="step-desc" style="font-size:.8em;margin-top:10px">拍一张空白表单的照片（或截图）上传，AI 帮你整理成可逐项填写的结构。照片只用于这一次解析；请勿上传已经填了真实个人信息的表单。</p>
+  </div>
+
+  <div class="dlg-pane" id="pane-text" hidden>
+    <textarea id="importText" placeholder="把表格上的文字按顺序粘贴进来，例如：&#10;姓名（必填）&#10;手机号（必填，11 位）&#10;参加场次：周六上午 / 周六下午"></textarea>
+    <p class="step-desc" style="font-size:.8em;margin-top:10px">需要 AI 解析：会调用百炼，把文字整理成可逐项填写的结构。</p>
+  </div>
+
+  <div id="importMsg" aria-live="polite"></div>
+
+  <div class="btn-row">
+    <button type="button" class="btn" id="doImport">开始导入</button>
+    <button type="button" class="btn ghost" id="cancelImport">取消</button>
+  </div>
+</dialog>
+
+<script src="../config.js"></script>
+<script src="../shared/schema.js"></script>
+<script src="../shared/ai.js"></script>
+<script src="../shared/import.js"></script>
+<script src="../shared/extract.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var $ = function (s) { return document.querySelector(s); };
+
+  var state = {
+    schema: null,
+    fields: [],
+    answers: {},
+    idx: 0,
+    source: "default",     // default | published | imported
+    submitted: false
+  };
+  window.__ml = state; // 测试钩子
+
+  /* ---------- 头部控件 ---------- */
+  var fontBtn = $("#fontBtn");
+  fontBtn.addEventListener("click", function () {
+    Minglu.cycleFontSize();
+    fontBtn.textContent = Minglu.fontSizeLabel();
+  });
+  var ttsBtn = $("#ttsBtn");
+  ttsBtn.addEventListener("click", function () {
+    var on = !Minglu.isTTS();
+    Minglu.setTTS(on);
+    ttsBtn.textContent = on ? "开启" : "关闭";
+    ttsBtn.setAttribute("aria-pressed", String(on));
+    if (on) { Minglu.speak("朗读已开启"); }
+  });
+
+  /* ---------- AI 状态（用户端只显示能不能用，不暴露任何配置） ---------- */
+  function setAiChip(text, ok) {
+    var chip = $("#aiChip");
+    chip.textContent = text;
+    chip.classList.toggle("warn", !ok);
+  }
+
+  /**
+   * AI 不可用时：**把按钮藏起来**，只留「听原表说明」。
+   * 设计文档 F6 的原话是「不许出现点了才发现连不上的按钮」——
+   * 所以这里不是禁用按钮，而是不渲染这个入口，并写明「接口已预留」。
+   */
+  function setAiUsable(ok) {
+    var btn = $("#aiExplain"), note = $("#aiNote");
+    if (btn) { btn.hidden = !ok; }
+    if (note) { note.hidden = !!ok; }
+  }
+
+  setAiChip("AI 检测中…", true);
+  setAiUsable(false);
+
+  (function checkAi() {
+    var s = MingluAI.getSettings();
+    if (s.mode === "off") { setAiChip("AI 已关闭 · 用本地说明", false); setAiUsable(false); return; }
+    if (s.mode === "direct") {
+      setAiChip(s.key ? "AI 已就绪" : "AI 未接通 · 用本地说明", !!s.key);
+      setAiUsable(!!s.key);
+      return;
+    }
+    MingluAI.checkProxy().then(function (r) {
+      var ok = !!(r.ok && r.configured);
+      setAiChip(ok ? "AI 已就绪" : "AI 未接通 · 用本地说明", ok);
+      setAiUsable(ok);
+    });
+  })();
+
+  /* ---------- 步骤切换 ---------- */
+  function goStep(n) {
+    [1, 2, 4, 5].forEach(function (i) {
+      document.getElementById("panel-" + i).hidden = i !== n;
+    });
+    document.querySelectorAll(".stepbar li").forEach(function (li) {
+      var s = parseInt(li.getAttribute("data-step"), 10);
+      li.classList.toggle("active", s === n || (n === 2 && s === 3));
+      li.classList.toggle("done", s < n);
+    });
+    document.getElementById("title-" + n).focus();
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- 载入表单：机构发布 > 自己导入 > 示例 ---------- */
+  function applySchema(schema, source) {
+    state.schema = schema;
+    state.fields = schema.fields || [];
+    state.answers = {};
+    state.idx = 0;
+    state.source = source;
+
+    var chip = $("#sourceChip");
+    var labelMap = {
+      published: "来源：机构发布",
+      imported: "来源：我自己导入",
+      "default": "来源：示例表单"
+    };
+    var extra = source === "published" ? "（机构侧修复并发布）"
+      : source === "imported" ? "（本地解析 / AI 整理）" : "";
+    chip.textContent = (labelMap[source] || "来源：示例表") + extra;
+
+    renderOverview(schema);
+    $("#startFill").disabled = false;
+  }
+
+  function loadDefaultSchema() {
+    return Minglu.fetchJSON("../data/form.schema.json").then(function (schema) {
+      applySchema(schema, "default");
+    }).catch(function () {
+      $("#overviewArea").innerHTML = '<div class="alert alert-err">' +
+        Minglu.explainLoadError("form.schema.json") + "</div>";
+    });
+  }
+
+  function initSchema() {
+    function usable(x) {
+      return !!(x && x.schema && x.schema.form && Array.isArray(x.schema.fields));
+    }
+    try {
+      var published = MingluImport.getPublished();
+      if (usable(published)) { applySchema(published.schema, "published"); return; }
+    } catch (e) { /* stored published data broken: fall back */ }
+    try {
+      var imported = MingluImport.getImported();
+      if (usable(imported)) { applySchema(imported.schema, "imported"); return; }
+    } catch (e) { /* stored imported data broken: fall back */ }
+    loadDefaultSchema();
+  }
+
+  /* ---------- 步骤 1：读表清单 ---------- */
+  function renderOverview(schema) {
+    var fields = schema.fields || [];
+    var ex = MingluExtract.analyze(schema);
+    $("#overviewArea").innerHTML =
+      '<div class="big-result ok" style="text-align:left;padding:22px 24px">' +
+        '<div class="num" style="font-size:1.5em">「' + Minglu.escapeHtml(schema.form.title) + "」</div>" +
+        '<div class="cap">' + Minglu.escapeHtml(schema.form.description || "") + "</div>" +
+      "</div>" +
+      MingluExtract.render(ex) +
+      '<div class="alert alert-info">' + Minglu.escapeHtml(schema.form.privacy || "") + "</div>";
+    MingluExtract.bindRead($("#overviewArea"), ex);
+
+    var html = '<div class="card"><h2 style="font-size:1.05em;margin-top:0">字段清单</h2><ul class="review-list">';
+    fields.forEach(function (f) {
+      var uncertain = f.uncertain ? ' <span class="sev sev-moderate">待确认</span>' : "";
+      html += "<li><span class='k'>" + Minglu.escapeHtml(f.label) +
+        (f.required ? " <span class='req-star' aria-label='必填'>*</span>" : "") + uncertain +
+        "</span><span class='v'>" + Minglu.escapeHtml(f.help || f.screen_reader_hint || "") + "</span></li>";
+    });
+    html += "</ul></div>";
+    $("#fieldList").innerHTML = html;
+  }
+
+  $("#startFill").addEventListener("click", function () {
+    state.idx = 0;
+    renderField();
+    goStep(2);
+  });
+
+  /* ---------- 步骤 2：渲染单个字段 ---------- */
+  function currentField() { return state.fields[state.idx]; }
+
+  function renderField() {
+    var f = currentField();
+    var stage = $("#fieldStage");
+    $("#fieldAlert").innerHTML = "";
+    $("#aiAnswer").innerHTML = "";
+
+    var helpText = f.help || "";
+    var reqMark = f.required ? ' <span class="req-star" aria-hidden="true">*</span><span class="visually-hidden">（必填）</span>' : "（选填）";
+
+    var html = '<span class="flabel" id="flabel">' + Minglu.escapeHtml(f.label) + reqMark + "</span>";
+    if (f.uncertain) {
+      html += '<div class="alert alert-info" style="margin:0 0 14px;font-size:.85rem">这一项原表没写清楚，标为「待确认」：' + Minglu.escapeHtml(f.uncertain) + "</div>";
+    }
+    if (helpText) { html += '<p class="fhelp">' + Minglu.escapeHtml(helpText) + "</p>"; }
+
+    var val = state.answers[f.key];
+
+    if (f.type === "text" || f.type === "email" || f.type === "number") {
+      html += '<input type="' + f.type + '" id="answer" aria-labelledby="flabel"' +
+        (f.placeholder ? ' placeholder="' + Minglu.escapeHtml(f.placeholder) + '"' : "") +
+        (f.type === "number" ? ' min="' + f.min + '" max="' + f.max + '" step="' + (f.step || 1) + '"' : "") +
+        (f.autocomplete ? ' autocomplete="' + f.autocomplete + '"' : "") +
+        (f.inputmode ? ' inputmode="' + f.inputmode + '"' : "") +
+        ' value="' + Minglu.escapeHtml(val != null ? val : (f["default"] != null ? f["default"] : "")) + '">';
+    } else if (f.type === "textarea") {
+      html += '<textarea id="answer" rows="' + (f.rows || 3) + '" aria-labelledby="flabel"' +
+        (f.placeholder ? ' placeholder="' + Minglu.escapeHtml(f.placeholder) + '"' : "") + ">" +
+        Minglu.escapeHtml(val || "") + "</textarea>";
+    } else if (f.type === "radio") {
+      html += '<div class="opts" role="radiogroup" aria-labelledby="flabel">';
+      (f.options || []).forEach(function (o) {
+        var checked = val === o.value ? " checked" : "";
+        html += '<label><input type="radio" name="answer" value="' + Minglu.escapeHtml(o.value) + '"' + checked + "> " +
+          Minglu.escapeHtml(o.label) + "</label>";
+      });
+      html += "</div>";
+    } else if (f.type === "checkbox") {
+      var arr = Array.isArray(val) ? val : [];
+      html += '<div class="opts" role="group" aria-labelledby="flabel">';
+      (f.options || []).forEach(function (o) {
+        var checked = arr.indexOf(o.value) >= 0 ? " checked" : "";
+        html += '<label><input type="checkbox" name="answer" value="' + Minglu.escapeHtml(o.value) + '"' + checked + "> " +
+          Minglu.escapeHtml(o.label) + "</label>";
+      });
+      html += "</div>";
+    }
+    stage.innerHTML = html;
+
+    var n = state.fields.length;
+    $("#progressNote").textContent = "第 " + (state.idx + 1) + " 项，共 " + n + " 项";
+    $("#progressFill").style.width = Math.round(((state.idx + 1) / n) * 100) + "%";
+    $("#prevField").disabled = state.idx === 0;
+    $("#nextField").textContent = state.idx === n - 1 ? "填完了，检查整张表" : "下一项";
+
+    var first = stage.querySelector("input, textarea");
+    if (first) { first.focus(); }
+    // 短句播报：一句一个信息点
+    Minglu.speak(f.label + "。" + (f.required ? "必填。" : "选填。") + (helpText ? helpText : ""));
+  }
+
+  /* ---------- AI 解释 / 原表说明 ---------- */
+  function localHintSpeech(f) {
+    var parts = [f.label + "。"];
+    if (f.required) { parts.push("必填。"); } else { parts.push("可以跳过。"); }
+    if (f.help) { parts.push(f.help); }
+    if (f.options && f.options.length) {
+      parts.push("可选 " + f.options.length + " 项。");
+    }
+    return parts.join("");
+  }
+
+  $("#readLocal").addEventListener("click", function () {
+    var f = currentField();
+    var text = localHintSpeech(f);
+    $("#aiAnswer").innerHTML = '<span class="who">原表说明（本地，不联网）</span>' + Minglu.escapeHtml(text);
+    Minglu.setTTS(true);
+    $("#ttsBtn").textContent = "开启";
+    $("#ttsBtn").setAttribute("aria-pressed", "true");
+    Minglu.speak(text);
+  });
+
+  $("#aiExplain").addEventListener("click", function () {
+    var f = currentField();
+    var box = $("#aiAnswer");
+    box.innerHTML = '<span class="who">AI</span>正在请 AI 解释这一项…';
+    MingluAI.explainField(f, state.schema.form.title).then(function (r) {
+      box.innerHTML = '<span class="who">AI 解释（' + Minglu.escapeHtml(r.model || "百炼") + "）</span>" +
+        Minglu.escapeHtml(r.answer);
+      Minglu.speak(r.answer);
+    }).catch(function (err) {
+      // 用户端只说人话；技术原因留在控制台，不打扰用户
+      if (window.console && err && err.message) { console.warn("[明路] AI 讲解失败：", err.message); }
+      box.innerHTML = '<span class="who">已改用原表说明</span>' +
+        "AI 这会儿用不了，我直接按原表的说明念给你听。<br><br>" +
+        Minglu.escapeHtml(localHintSpeech(f));
+      Minglu.speak("AI 这会儿用不了，我按原表说明讲这一项。" + localHintSpeech(f));
+    });
+  });
+
+  /* ---------- 取值 ---------- */
+  function readAnswer() {
+    var f = currentField();
+    if (f.type === "radio") {
+      var r = document.querySelector('input[name="answer"]:checked');
+      return r ? r.value : "";
+    }
+    if (f.type === "checkbox") {
+      return Array.prototype.map.call(
+        document.querySelectorAll('input[name="answer"]:checked'),
+        function (c) { return c.value; });
+    }
+    var el = document.getElementById("answer");
+    return el ? el.value : "";
+  }
+
+  /* ---------- 步骤 3：当场校验（内联于下一项） ---------- */
+  function advance() {
+    var f = currentField();
+    var v = readAnswer();
+    var msg = Minglu.validateField(f, v);
+    if (msg) {
+      $("#fieldAlert").innerHTML = '<div class="alert alert-err" role="alert">' + Minglu.escapeHtml(msg) + "</div>";
+      Minglu.speak("这一项不能通过。" + msg);
+      var first = $("#fieldStage").querySelector("input, textarea");
+      if (first) { first.focus(); }
+      return;
+    }
+    state.answers[f.key] = v;
+    $("#fieldAlert").innerHTML = '<div class="alert alert-ok" role="status">这一项没问题。</div>';
+    // 长号码只念后四位
+    var spoken = String(v);
+    if (/^\d{11,}$/.test(spoken)) {
+      Minglu.speak("已记下，尾号 " + spoken.slice(-4) + "。");
+    }
+    if (state.idx === state.fields.length - 1) {
+      goStep(4);
+    } else {
+      state.idx++;
+      renderField();
+    }
+  }
+
+  $("#nextField").addEventListener("click", advance);
+
+  $("#prevField").addEventListener("click", function () {
+    state.answers[currentField().key] = readAnswer();
+    if (state.idx > 0) { state.idx--; renderField(); }
+  });
+
+  /* ---------- 快捷键 ---------- */
+  document.addEventListener("keydown", function (e) {
+    if (!e.altKey) { return; }
+    var k = (e.key || "").toLowerCase();
+    if (k === "n") { e.preventDefault(); if ($("#panel-2").hidden === false) { advance(); } }
+    else if (k === "p") { e.preventDefault(); if ($("#panel-2").hidden === false) { $("#prevField").click(); } }
+    else if (k === "a") { e.preventDefault(); if ($("#panel-2").hidden === false) { $("#aiExplain").click(); } }
+    else if (k === "r") { e.preventDefault(); if ($("#panel-2").hidden === false) { $("#readLocal").click(); } }
+  });
+
+  /* ---------- 步骤 4：整表查错 ---------- */
+  function getValueByKey(key) { return state.answers[key]; }
+
+  $("#doCheck").addEventListener("click", function () {
+    var problems = Minglu.checkAll(state.fields, getValueByKey);
+    var uncertain = state.fields.filter(function (f) { return f.uncertain; });
+    if (problems.length === 0) {
+      $("#checkResult").innerHTML =
+        '<div class="big-result ok"><div class="num">全部通过</div>' +
+        '<div class="cap">共检查 ' + state.fields.length + " 项，没有发现问题。" +
+        (uncertain.length ? "有 " + uncertain.length + " 项标为「待确认」，请在提交前自己再确认一遍。" : "") +
+        "</div></div>";
+      $("#toReview").disabled = false;
+      Minglu.speak("检查完成，全部通过。" + (uncertain.length ? "有 " + uncertain.length + " 项需要你自己确认。" : ""));
+    } else {
+      var html = '<div class="alert alert-err" role="alert">发现 ' + problems.length +
+        " 处需要修改，点任意一条可以直接跳回去改：</div><ul class='check-list'>";
+      problems.forEach(function (p) {
+        html += '<li><a href="#" data-jump="' + p.key + '">' + Minglu.escapeHtml(p.label) +
+          "：" + Minglu.escapeHtml(p.message) + "</a></li>";
+      });
+      html += "</ul>";
+      $("#checkResult").innerHTML = html;
+      $("#toReview").disabled = true;
+      Minglu.speak("发现 " + problems.length + " 处要修改。第一处是" + problems[0].label + "。");
+    }
+  });
+
+  $("#checkResult").addEventListener("click", function (e) {
+    var a = e.target.closest("a[data-jump]");
+    if (!a) { return; }
+    e.preventDefault();
+    var key = a.getAttribute("data-jump");
+    var i = state.fields.findIndex(function (f) { return f.key === key; });
+    if (i >= 0) { state.idx = i; renderField(); goStep(2); }
+  });
+
+  $("#checkBack").addEventListener("click", function () {
+    state.idx = 0; renderField(); goStep(2);
+  });
+  $("#toReview").addEventListener("click", function () { renderReview(); goStep(5); });
+
+  /* ---------- 步骤 5：核对提交 ---------- */
+  function answerText(f) {
+    var v = state.answers[f.key];
+    if (Array.isArray(v)) { return v.length ? v.join("、") : ""; }
+    if (v == null || String(v).trim() === "") { return ""; }
+    return String(v);
+  }
+
+  function renderReview() {
+    var html = "";
+    state.fields.forEach(function (f) {
+      var t = answerText(f);
+      html += "<li><span class='k'>" + Minglu.escapeHtml(f.label) + "</span>" +
+        (t ? "<span class='v'>" + Minglu.escapeHtml(t) + "</span>"
+           : "<span class='v empty'>（未填写）</span>") + "</li>";
+    });
+    $("#reviewList").innerHTML = html;
+    var btnLabel = (state.schema && state.schema.form.submit.button_label) || "提交";
+    $("#finalSubmit").textContent = btnLabel;
+    Minglu.speak("请最后核对。确认无误后，由你自己点「" + btnLabel + "」。明路不会替你提交。");
+  }
+
+  $("#finalSubmit").addEventListener("click", function () {
+    var problems = Minglu.checkAll(state.fields, getValueByKey);
+    if (problems.length > 0) {
+      $("#submitStatus").innerHTML = '<div class="alert alert-err" role="alert">还有 ' +
+        problems.length + " 处未通过：" + Minglu.escapeHtml(problems[0].label) + " 等。请返回修改。</div>";
+      Minglu.speak("还有 " + problems.length + " 处未通过，请返回修改。");
+      return;
+    }
+    var wording = (state.schema && state.schema.form.submit.result_wording) || "填写任务完成";
+    var nameField = state.fields.filter(function (f) { return f.type === "text"; })[0];
+    var who = nameField ? answerText(nameField) : "";
+    $("#submitStatus").innerHTML =
+      '<div class="big-result ok"><div class="num">' + Minglu.escapeHtml(wording) + "</div>" +
+      '<div class="cap">' + (who ? "已收到「" + Minglu.escapeHtml(who) + "」的填写内容" : "已收到填写内容") +
+      "（模拟提交，未发送到任何服务器，刷新页面即消失）。</div></div>";
+    state.submitted = true;
+    Minglu.speak(wording + "。这是模拟提交，没有发送任何数据。");
+  });
+
+  $("#reviewBack").addEventListener("click", function () { goStep(4); });
+
+  /* ---------- 导入表格 ---------- */
+  var dlg = $("#importDialog");
+  $("#openImport").addEventListener("click", function () { dlg.showModal(); });
+  $("#cancelImport").addEventListener("click", function () { dlg.close(); });
+
+  document.querySelectorAll(".dlg-tabs button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      document.querySelectorAll(".dlg-tabs button").forEach(function (x) { x.setAttribute("aria-selected", "false"); });
+      b.setAttribute("aria-selected", "true");
+      ["file", "html", "text", "image"].forEach(function (p) {
+        document.getElementById("pane-" + p).hidden = p !== b.getAttribute("data-pane");
+      });
+      $("#importMsg").innerHTML = "";
+    });
+  });
+
+  function afterImport(schema, msg) {
+    MingluImport.saveImported(schema);
+    MingluImport.clearPublished();
+    applySchema(schema, "imported");
+    dlg.close();
+    $("#overviewArea").insertAdjacentHTML("afterbegin",
+      '<div class="alert alert-ok">' + Minglu.escapeHtml(msg) + "已整理出 " + schema.fields.length + " 项，可以开始填写。</div>");
+    Minglu.speak(msg + "已整理出 " + schema.fields.length + " 项。");
+  }
+
+  $("#doImport").addEventListener("click", function () {
+    var activePane = document.querySelector('.dlg-tabs button[aria-selected="true"]').getAttribute("data-pane");
+    $("#importMsg").innerHTML = '<div class="alert alert-info">正在处理…</div>';
+
+    if (activePane === "file") {
+      var file = $("#importFile").files[0];
+      if (!file) {
+        $("#importMsg").innerHTML = '<div class="alert alert-err">请先选择一个 .html 文件。</div>';
+        return;
+      }
+      var reader = new FileReader();
+      reader.onload = function () {
+        try {
+          var schema = MingluImport.fromHtml(String(reader.result), file.name);
+          if (!schema.fields.length) { throw new Error("这张表里没有找到可填写的字段。"); }
+          afterImport(schema, "已解析「" + file.name + "」，");
+        } catch (e) {
+          $("#importMsg").innerHTML = '<div class="alert alert-err">解析失败：' + Minglu.escapeHtml(e.message) + "</div>";
+        }
+      };
+      reader.readAsText(file);
+      return;
+    }
+
+    if (activePane === "html") {
+      var html = $("#importHtml").value.trim();
+      if (!html) {
+        $("#importMsg").innerHTML = '<div class="alert alert-err">请先粘贴网页源码。</div>';
+        return;
+      }
+      try {
+        var s2 = MingluImport.fromHtml(html, "粘贴的网页");
+        if (!s2.fields.length) { throw new Error("这段源码里没有找到可填写的字段。"); }
+        afterImport(s2, "已解析粘贴的网页，");
+      } catch (e) {
+        $("#importMsg").innerHTML = '<div class="alert alert-err">解析失败：' + Minglu.escapeHtml(e.message) + "</div>";
+      }
+      return;
+    }
+
+    if (activePane === "image") {
+      var imgFile = $("#importImage").files[0];
+      if (!imgFile) {
+        $("#importMsg").innerHTML = '<div class="alert alert-err">请先选择一张表单照片。</div>';
+        return;
+      }
+      if (imgFile.size > 8 * 1024 * 1024) {
+        $("#importMsg").innerHTML = '<div class="alert alert-err">这张照片太大了（超过 8 MB），请压缩或换一张再试。</div>';
+        return;
+      }
+      $("#importMsg").innerHTML = '<div class="alert alert-info">正在读这张照片并请 AI 整理，大约需要十几秒…</div>';
+      var ireader = new FileReader();
+      ireader.onload = function () {
+        var dataUrl = String(ireader.result);
+        var img = new Image();
+        img.onload = function () {
+          var maxSide = 1600;
+          var scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+          if (scale < 1) {
+            var cv = document.createElement("canvas");
+            cv.width = Math.round(img.width * scale);
+            cv.height = Math.round(img.height * scale);
+            cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+            dataUrl = cv.toDataURL("image/jpeg", 0.85);
+          }
+          MingluAI.parseFormText("", dataUrl).then(function (r) {
+            var schema = MingluImport.fromAiResult(r.result, "AI 解析的表单");
+            if (!schema.fields.length) { throw { message: "AI 没有整理出字段，请换一张更清楚的照片。" }; }
+            afterImport(schema, "AI 已把照片整理成 " + schema.fields.length + " 项，");
+          }).catch(function (err) {
+            if (window.console && err && err.message) { console.warn("[明路] AI 图片解析失败：", err.message); }
+            $("#importMsg").innerHTML = '<div class="alert alert-err">这次没能用 AI 读这张照片。<br>可以改用「粘贴表格文字」，把表格上的文字打出来，AI 一样能整理。</div>';
+          });
+        };
+        img.onerror = function () {
+          $("#importMsg").innerHTML = '<div class="alert alert-err">这张照片读不出来，请换一张再试。</div>';
+        };
+        img.src = dataUrl;
+      };
+      ireader.readAsDataURL(imgFile);
+      return;
+    }
+
+    // 文字 → AI 解析
+    var text = $("#importText").value.trim();
+    if (!text) {
+      $("#importMsg").innerHTML = '<div class="alert alert-err">请先粘贴表格上的文字。</div>';
+      return;
+    }
+    MingluAI.parseFormText(text).then(function (r) {
+      var schema = MingluImport.fromAiResult(r.result, "AI 解析的表单");
+      if (!schema.fields.length) { throw { message: "AI 没有整理出字段，请补充更多表格文字。" }; }
+      afterImport(schema, "AI 已把文字整理成 " + schema.fields.length + " 项，");
+    }).catch(function (err) {
+      if (window.console && err && err.message) { console.warn("[明路] AI 解析失败：", err.message); }
+      $("#importMsg").innerHTML = '<div class="alert alert-err">这次没能用 AI 帮你整理文字。' +
+        "<br>可以改用「上传 .html 文件」或「粘贴网页源码」，这两种不需要联网，也能自动整理成可逐项填写的结构。</div>";
+    });
+  });
+
+  $("#useSample").addEventListener("click", function () {
+    MingluImport.clearPublished();
+    MingluImport.clearImported();
+    loadDefaultSchema();
+    Minglu.speak("已切回示例表单。");
+  });
+
+  initSchema();
+  goStep(1);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<!--
+  ============================================================
+  明路——公益表单无障碍修复助手 · 原始测试样本（original.html）
+  团队构造的受控测试样本（fixture），不是真实机构的表单。
+
+  用途：为无障碍诊断与修复提供可复现的输入。页面刻意包含六类
+  可复现的无障碍问题（详见 fixture-notes.md），业务流程
+  （填写→校验→模拟提交）在鼠标操作下完整可用。
+
+  本页不向任何服务器发送数据，全部处理仅在浏览器本地完成。
+  版本：v1（2026-11-05）
+  ============================================================
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>社区公益活动报名（演示样本，不是真实报名）</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    margin: 0; background: #f5f6f8; color: #222; line-height: 1.6;
+  }
+  .demo-banner {
+    background: #7a5c00; color: #fff; text-align: center;
+    padding: 8px 16px; font-size: 14px;
+  }
+  main {
+    max-width: 560px; margin: 24px auto; background: #fff;
+    border-radius: 8px; padding: 24px 32px 32px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: #666; font-size: 14px; margin: 0 0 20px; }
+  .field { margin-bottom: 18px; }
+  .field-label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 15px; }
+  .req { color: #d40000; font-style: normal; }
+  input[type="text"], textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid #bbb;
+    border-radius: 4px; font-size: 15px; font-family: inherit;
+  }
+  .options { display: flex; flex-direction: column; gap: 6px; }
+  .options label { font-weight: 400; font-size: 15px; }
+  .hint { color: #888; font-size: 13px; margin-left: 8px; }
+  .stepper {
+    display: inline-flex; align-items: center;
+    border: 1px solid #bbb; border-radius: 4px; overflow: hidden;
+  }
+  .step-btn {
+    width: 40px; height: 36px; display: flex; align-items: center; justify-content: center;
+    font-size: 18px; background: #eee; user-select: none; cursor: pointer;
+  }
+  .step-btn:active { background: #ddd; }
+  .step-value { width: 56px; text-align: center; font-size: 16px; }
+  /* F4：错误状态只有颜色变化，没有任何文字说明 */
+  .error { border-color: #d40000 !important; background: #fff3f3; }
+  .options.error { border: 1px solid #d40000; background: #fff3f3; border-radius: 4px; padding: 6px; }
+  /* 提交结果条：普通 div，非实时区域，不与字段关联 */
+  #form-status { margin: 0 0 16px; padding: 10px 12px; border-radius: 4px; font-size: 15px; display: none; }
+  #form-status.status-error { display: block; background: #fdecea; color: #a30000; border: 1px solid #d40000; }
+  #form-status.status-ok { display: block; background: #e8f6e8; color: #1d6b1d; border: 1px solid #2e8b2e; }
+  .btn-row { margin-top: 24px; }
+  button {
+    padding: 9px 22px; font-size: 15px; border-radius: 4px;
+    border: 1px solid #2f6fd6; cursor: pointer; font-family: inherit;
+  }
+  #submitBtn { background: #2f6fd6; color: #fff; margin-right: 12px; }
+  #resetBtn { background: #fff; color: #2f6fd6; }
+  footer { text-align: center; color: #999; font-size: 12px; padding: 20px 16px 32px; }
+</style>
+</head>
+<body>
+<div class="demo-banner">演示页面 · 团队构造的受控测试样本 · 不是真实报名 · 数据仅在本页模拟处理，不会对外发送</div>
+<main>
+  <h1>社区公益活动报名</h1>
+  <p class="sub">本周社区图书馆整理与阅读推广活动，欢迎报名成为志愿者。</p>
+
+  <div id="form-status"></div>
+
+  <form id="signup" onsubmit="return handleSubmit(event);">
+
+    <!-- F1：可见标签是 span，没有 <label for>，程序上与输入框无关联 -->
+    <div class="field">
+      <span class="field-label">称呼 <em class="req">*</em></span>
+      <input type="text" id="name" name="name" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <span class="field-label">联系邮箱 <em class="req">*</em></span>
+      <input type="text" id="email" name="email" autocomplete="off">
+    </div>
+
+    <!-- F2：一组单选没有 fieldset/legend，读屏无法获知它们同属“活动场次” -->
+    <div class="field">
+      <span class="field-label">活动场次 <em class="req">*</em></span>
+      <div class="options" id="session-options">
+        <label><input type="radio" name="session" value="周六上午场"> 周六上午场（9:00–12:00）</label>
+        <label><input type="radio" name="session" value="周六下午场"> 周六下午场（14:00–17:00）</label>
+        <label><input type="radio" name="session" value="周日全天"> 周日全天（9:00–17:00）</label>
+      </div>
+    </div>
+
+    <!-- F3：自定义步进器是 div+onclick，无 tabindex/role/键盘事件，键盘完全无法操作 -->
+    <div class="field">
+      <span class="field-label">参与人数 <em class="req">*</em></span>
+      <div class="stepper">
+        <div class="step-btn" id="step-dec" onclick="changeCount(-1)">−</div>
+        <div class="step-value" id="step-value">1</div>
+        <div class="step-btn" id="step-inc" onclick="changeCount(1)">＋</div>
+      </div>
+      <span class="hint">单场最多 10 人</span>
+    </div>
+
+    <!-- 服务偏好组同样是 F2 的实例：无 fieldset/legend，组标题只是普通 span -->
+    <div class="field">
+      <span class="field-label">服务偏好（可多选）</span>
+      <div class="options">
+        <label><input type="checkbox" name="pref" value="现场引导"> 现场引导</label>
+        <label><input type="checkbox" name="pref" value="物资整理"> 物资整理</label>
+        <label><input type="checkbox" name="pref" value="摄影记录"> 摄影记录</label>
+        <label><input type="checkbox" name="pref" value="交流协助"> 交流协助</label>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="field-label">备注</span>
+      <textarea id="note" name="note" rows="3" placeholder="如：希望和同学一组参加"></textarea>
+    </div>
+
+    <div class="btn-row">
+      <button type="submit" id="submitBtn">提交报名</button>
+      <button type="button" id="resetBtn" onclick="resetForm()">重置</button>
+    </div>
+  </form>
+</main>
+<footer>“明路——公益表单无障碍修复助手”项目 · 原始测试样本 original.html · 版本 v1（2026-11-05）</footer>
+
+<script>
+  // —— 参与人数步进器（F3：仅鼠标可用）——
+  var count = 1;
+  function changeCount(delta) {
+    var next = count + delta;
+    if (next >= 1 && next <= 10) { count = next; }
+    document.getElementById('step-value').textContent = count;
+  }
+
+  // —— 校验（F4：错误只用红色标记；F5：无任何定位手段）——
+  function handleSubmit(e) {
+    e.preventDefault();
+    clearErrorMarks();
+    var badFields = [];
+
+    var nameEl = document.getElementById('name');
+    if (!nameEl.value.trim()) { nameEl.classList.add('error'); badFields.push(nameEl); }
+
+    var emailEl = document.getElementById('email');
+    var emailVal = emailEl.value.trim();
+    if (!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) { emailEl.classList.add('error'); badFields.push(emailEl); }
+
+    var sessionChecked = document.querySelector('input[name="session"]:checked');
+    var sessionBox = document.getElementById('session-options');
+    if (!sessionChecked) { sessionBox.classList.add('error'); badFields.push(sessionBox); }
+
+    var status = document.getElementById('form-status');
+    if (badFields.length > 0) {
+      // F5：只有一条笼统提示，不指明哪个字段；焦点不移动；无摘要与链接
+      status.className = 'status-error';
+      status.textContent = '提交失败，请检查表单中标红的必填项。';
+      return false;
+    }
+
+    // —— F6：成功反馈只写入普通 div，读屏收不到任何通知 ——
+    var prefs = [];
+    var prefChecked = document.querySelectorAll('input[name="pref"]:checked');
+    for (var i = 0; i < prefChecked.length; i++) { prefs.push(prefChecked[i].value); }
+    status.className = 'status-ok';
+    status.textContent = '报名成功（模拟）：已收到 ' + nameEl.value.trim() + ' 的报名，'
+      + '场次「' + sessionChecked.value + '」，参与人数 ' + count + ' 人'
+      + (prefs.length ? '，服务偏好：' + prefs.join('、') : '')
+      + '。本页未向任何服务器发送数据。';
+    return false;
+  }
+
+  function clearErrorMarks() {
+    var marked = document.querySelectorAll('.error');
+    for (var i = 0; i < marked.length; i++) { marked[i].classList.remove('error'); }
+    var status = document.getElementById('form-status');
+    status.className = '';
+    status.textContent = '';
+  }
+
+  function resetForm() {
+    document.getElementById('signup').reset();
+    count = 1;
+    document.getElementById('step-value').textContent = count;
+    clearErrorMarks();
+  }
+</script>
+</body>
+</html>

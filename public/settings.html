@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>AI 设置 · 明路</title>
+<link rel="stylesheet" href="assets/minglu.css">
+</head>
+<body>
+
+<div class="notice"><span class="notice-dot" aria-hidden="true"></span><strong>部署调试页</strong><span>· 正式配置写在 web/config.js，用户端不需要任何设置</span></div>
+
+<div class="page">
+
+  <header class="site-head">
+    <a class="brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true">明</span>
+      <span><strong>明路</strong><small>AI 设置</small></span>
+    </a>
+    <span class="spacer"></span>
+    <div class="toolbox">
+      <a class="tool-btn" href="index.html">返回首页</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <h1 class="step-title" id="title">AI 配置（部署调试页）</h1>
+    <p class="step-desc">这一页是给部署人员用的，普通用户不需要打开。正式部署请直接编辑 <code style="background:var(--soft);padding:2px 6px;border-radius:5px">web/config.js</code>，配一次之后，所有用户打开网页就能直接用 AI。本页的修改只对当前浏览器生效，用来自测。</p>
+
+    <div class="card" id="deployCard">
+      <h2 style="font-size:1.05em;margin-top:0">用户端是零配置的</h2>
+      <p class="step-desc" style="margin-bottom:10px">推荐做法：把 Key 交给代理进程，网页只连本机代理。这样用户端没有任何设置，Key 也不会出现在页面源码里。</p>
+      <pre id="configSnippet" style="background:var(--soft);padding:14px 16px;border-radius:10px;font-size:.82rem;overflow-x:auto;margin:0"></pre>
+      <div class="btn-row" style="margin-top:12px">
+        <button type="button" class="btn secondary" id="genSnippet">生成 config.js 片段</button>
+        <button type="button" class="btn ghost" id="copySnippet">复制</button>
+      </div>
+      <div id="copyMsg" aria-live="polite"></div>
+    </div>
+
+    <div class="card" id="statusCard" aria-live="polite">
+      <h2 style="font-size:1.05em;margin-top:0">当前状态</h2>
+      <div id="statusBox"><span class="sev sev-advisory">检测中…</span></div>
+    </div>
+
+    <section class="card">
+      <h2 style="font-size:1.05em;margin-top:0">选择接入方式</h2>
+      <div class="field-stage" style="padding:0;border:0;background:transparent">
+        <div class="opts" role="radiogroup" aria-label="接入方式">
+          <label><input type="radio" name="mode" value="proxy"> <span><strong>本地代理</strong>（推荐）：Key 放在启动脚本里，浏览器碰不到</span></label>
+          <label><input type="radio" name="mode" value="direct"> <span><strong>浏览器直连百炼</strong>：填 Key 即用，可能被跨域拦截</span></label>
+          <label><input type="radio" name="mode" value="off"> <span><strong>关闭 AI</strong>：只用本地规则，不联网</span></label>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="directPanel">
+      <h2 style="font-size:1.05em;margin-top:0">百炼 API Key（直连模式用）</h2>
+      <label class="field-label" for="keyInput" style="font-weight:700;display:block;margin:12px 0 8px">API Key</label>
+      <input id="keyInput" type="password" placeholder="sk-..." autocomplete="off" spellcheck="false"
+             style="width:100%;padding:14px 15px;border:1px solid #8b9e91;border-radius:10px;font-size:1rem">
+      <p class="step-desc" style="margin:10px 0 0;font-size:.82em">
+        只存在本机浏览器 localStorage。不要把 Key 发到群里或写进截图。
+      </p>
+
+      <label class="field-label" for="modelSelect" style="font-weight:700;display:block;margin:18px 0 8px">模型</label>
+      <select id="modelSelect" style="width:100%;padding:13px 15px;border:1px solid #8b9e91;border-radius:10px;font-size:1rem">
+        <option value="qwen-plus">qwen-plus（推荐，均衡）</option>
+        <option value="qwen-turbo">qwen-turbo（更快更省）</option>
+        <option value="qwen-max">qwen-max（效果最好）</option>
+      </select>
+
+      <label class="field-label" for="endpointInput" style="font-weight:700;display:block;margin:18px 0 8px">接口地址</label>
+      <input id="endpointInput" type="text" style="width:100%;padding:14px 15px;border:1px solid #8b9e91;border-radius:10px;font-size:.95rem">
+
+      <div class="btn-row">
+        <button type="button" class="btn" id="saveDirect">保存 Key</button>
+        <button type="button" class="btn secondary" id="testDirect">测试连接</button>
+        <button type="button" class="btn ghost" id="clearKey">清除 Key</button>
+      </div>
+      <div id="directResult" aria-live="polite"></div>
+    </section>
+
+    <section class="card" id="proxyPanel">
+      <h2 style="font-size:1.05em;margin-top:0">本地代理</h2>
+      <label class="field-label" for="proxyInput" style="font-weight:700;display:block;margin:12px 0 8px">代理地址</label>
+      <input id="proxyInput" type="text" style="width:100%;padding:14px 15px;border:1px solid #8b9e91;border-radius:10px;font-size:1rem">
+      <div class="btn-row">
+        <button type="button" class="btn secondary" id="testProxy">检测代理</button>
+        <button type="button" class="btn ghost" id="saveProxy">保存地址</button>
+      </div>
+      <div id="proxyResult" aria-live="polite"></div>
+      <p class="step-desc" style="margin-top:14px;font-size:.82em">
+        启动方式：在 minglu 工程根目录执行 <code style="background:var(--soft);padding:2px 6px;border-radius:5px">$env:DASHSCOPE_API_KEY="你的Key"</code>，
+        再执行 <code style="background:var(--soft);padding:2px 6px;border-radius:5px">python tools/minglu_proxy.py</code>。
+      </p>
+    </section>
+
+    <div class="btn-row">
+      <a class="btn" href="index.html">保存并返回首页</a>
+      <a class="btn secondary" href="user/index.html">去个人侧试一下</a>
+    </div>
+  </main>
+
+  <footer class="site-foot">
+    <strong>明路</strong> AI 只负责理解与讲解，填得对不对由本地规则判定。· 未接入时页面明确显示「本地规则模式」。
+  </footer>
+</div>
+
+<script src="config.js"></script>
+<script src="shared/schema.js"></script>
+<script src="shared/ai.js"></script>
+<script>
+(function () {
+  "use strict";
+  var $ = function (s) { return document.querySelector(s); };
+  var s = MingluAI.getSettings();
+
+  function paintStatus() {
+    var st = MingluAI.status();
+    var cls = st.level === "proxy" || st.level === "direct" ? "sev-advisory" : "sev-moderate";
+    var extra = "";
+    if (st.level === "proxy") {
+      extra = '<p class="step-desc" style="margin:8px 0 0;font-size:.85em" id="proxyLive">正在检测代理…</p>';
+    }
+    $("#statusBox").innerHTML =
+      '<span class="sev ' + cls + '">' + Minglu.escapeHtml(st.text) + "</span>" + extra;
+
+    if (st.level === "proxy") {
+      MingluAI.checkProxy().then(function (r) {
+        var el = document.getElementById("proxyLive");
+        if (!el) { return; }
+        if (!r.ok) {
+          el.innerHTML = '代理未启动：请运行 <code style="background:var(--soft);padding:2px 6px;border-radius:5px">python tools/minglu_proxy.py</code>，当前会退到本地规则模式。';
+        } else if (!r.configured) {
+          el.innerHTML = '代理在线，但没读到 Key（未设置 DASHSCOPE_API_KEY），当前为本地规则模式。';
+        } else {
+          el.innerHTML = '代理在线，Key 已配置，可以真实调用（模型：' + Minglu.escapeHtml(r.model || "qwen-plus") + "）。";
+        }
+      });
+    }
+  }
+
+  // 回填
+  document.querySelectorAll('input[name="mode"]').forEach(function (r) {
+    r.checked = r.value === s.mode;
+    r.addEventListener("change", function () {
+      MingluAI.saveSettings({ mode: r.value });
+      paintStatus();
+      paintPanels();
+    });
+  });
+  $("#keyInput").value = s.key || "";
+  $("#modelSelect").value = s.model;
+  $("#endpointInput").value = s.endpoint;
+  $("#proxyInput").value = s.proxyUrl;
+
+  function paintPanels() {
+    var cur = MingluAI.getSettings();
+    $("#directPanel").style.opacity = cur.mode === "direct" ? "1" : ".55";
+    $("#proxyPanel").style.opacity = cur.mode === "proxy" ? "1" : ".55";
+  }
+  paintPanels();
+  paintStatus();
+
+  $("#saveDirect").addEventListener("click", function () {
+    var key = $("#keyInput").value.trim();
+    if (key && !/^sk-/.test(key)) {
+      $("#directResult").innerHTML = '<div class="alert alert-err">百炼的 Key 一般以 sk- 开头，请检查是否复制完整。</div>';
+      return;
+    }
+    MingluAI.saveSettings({
+      key: key,
+      model: $("#modelSelect").value,
+      endpoint: $("#endpointInput").value.trim() || "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      mode: "direct"
+    });
+    document.querySelector('input[name="mode"][value="direct"]').checked = true;
+    paintStatus(); paintPanels();
+    $("#directResult").innerHTML = '<div class="alert alert-ok">已保存（' +
+      Minglu.escapeHtml(key ? MingluAI.maskKey(key) : "空") + "）。" +
+      (key ? "可以点「测试连接」验证。" : "Key 为空，仍是本地规则模式。") + "</div>";
+  });
+
+  $("#testDirect").addEventListener("click", function () {
+    $("#directResult").innerHTML = '<div class="alert alert-info">正在测试…</div>';
+    MingluAI.saveSettings({ key: $("#keyInput").value.trim(), model: $("#modelSelect").value });
+    MingluAI.testDirect().then(function (r) {
+      if (r.ok) {
+        $("#directResult").innerHTML = '<div class="alert alert-ok">连接成功，百炼可用。</div>';
+      } else {
+        $("#directResult").innerHTML = '<div class="alert alert-err">连接失败：' + Minglu.escapeHtml(r.error) + "</div>";
+      }
+    });
+  });
+
+  $("#clearKey").addEventListener("click", function () {
+    MingluAI.clearKey();
+    $("#keyInput").value = "";
+    paintStatus();
+    $("#directResult").innerHTML = '<div class="alert alert-info">Key 已清除，回到本地规则模式。</div>';
+  });
+
+  $("#testProxy").addEventListener("click", function () {
+    MingluAI.saveSettings({ proxyUrl: $("#proxyInput").value.trim() });
+    $("#proxyResult").innerHTML = '<div class="alert alert-info">正在检测…</div>';
+    MingluAI.checkProxy().then(function (r) {
+      if (!r.ok) {
+        $("#proxyResult").innerHTML = '<div class="alert alert-err">连不上代理。请确认已运行 python tools/minglu_proxy.py。</div>';
+        return;
+      }
+      $("#proxyResult").innerHTML = r.configured
+        ? '<div class="alert alert-ok">代理在线，Key 已配置，可以真实调用（模型：' + Minglu.escapeHtml(r.model) + "）。</div>"
+        : '<div class="alert alert-err">代理在线，但没有读到 DASHSCOPE_API_KEY。请带上环境变量重启代理。</div>';
+    });
+  });
+
+  $("#saveProxy").addEventListener("click", function () {
+    MingluAI.saveSettings({ proxyUrl: $("#proxyInput").value.trim(), mode: "proxy" });
+    document.querySelector('input[name="mode"][value="proxy"]').checked = true;
+    paintStatus(); paintPanels();
+    $("#proxyResult").innerHTML = '<div class="alert alert-ok">代理地址已保存（仅本机浏览器生效）。</div>';
+  });
+
+  /* ---------- 生成部署配置片段 ---------- */
+  function snippet() {
+    var cur = MingluAI.getSettings();
+    var keyForFile = cur.mode === "direct" ? (cur.key || "") : "";
+    return "window.MINGLU_CONFIG = {\n" +
+      "  ai: {\n" +
+      '    mode: "' + cur.mode + '",\n' +
+      '    proxyUrl: "' + cur.proxyUrl + '",\n' +
+      '    endpoint: "' + cur.endpoint + '",\n' +
+      '    model: "' + cur.model + '",\n' +
+      '    key: "' + keyForFile + '"\n' +
+      "  },\n" +
+      "  showAdminEntry: false\n" +
+      "};";
+  }
+  $("#genSnippet").addEventListener("click", function () {
+    $("#configSnippet").textContent = snippet();
+    $("#copyMsg").innerHTML = "";
+  });
+  $("#copySnippet").addEventListener("click", function () {
+    var text = $("#configSnippet").textContent || snippet();
+    $("#configSnippet").textContent = text;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        $("#copyMsg").innerHTML = '<div class="alert alert-ok">已复制，粘贴到 web/config.js 即可。</div>';
+      }).catch(function () {
+        $("#copyMsg").innerHTML = '<div class="alert alert-info">浏览器不允许自动复制，请手动选中上面的代码。</div>';
+      });
+    } else {
+      $("#copyMsg").innerHTML = '<div class="alert alert-info">请手动选中上面的代码复制。</div>';
+    }
+  });
+  $("#configSnippet").textContent = snippet();
+
+  paintPanels();
+  paintStatus();
+})();
+</script>
+</body>
+</html>

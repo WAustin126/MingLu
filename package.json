@@ -1,0 +1,14 @@
+{
+  "name": "minglu-form-assistant",
+  "version": "2.0.0",
+  "private": true,
+  "description": "明路 · 表单陪填助手（动态版：静态页 + 同域 AI 解释代理）",
+  "main": "server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.js"
+  }
+}

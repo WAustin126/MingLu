@@ -1,0 +1,142 @@
+{
+  "schema_version": "1.0",
+  "generated_by": "明路 · 机构模式（a11y_scan.py v1.1 诊断 + 最小改动修复）",
+  "generated_at": "2026-11-05T19:20:00+08:00",
+  "source_file": "original.html",
+  "source_version": "v1（2026-11-05，团队构造的受控测试样本）",
+  "fidelity": "字段、选项、必填性与校验规则与 original.html 一致；count 字段是新补的真实数据载体（原页面该值只存在 JS 变量中，不进 FormData），见 change-log.md C-07",
+  "form": {
+    "id": "community-volunteer-signup",
+    "title": "社区公益活动报名",
+    "description": "本周社区图书馆整理与阅读推广活动，欢迎报名成为志愿者。",
+    "safety_notice": "演示环境，请勿填写真实个人信息",
+    "privacy": "本页不向任何服务器发送数据，填写内容只保存在当前浏览器内存中，刷新即丢失。",
+    "submit": {
+      "mode": "local-simulation",
+      "server_endpoint": null,
+      "button_label": "提交报名",
+      "result_wording": "演示任务完成",
+      "forbidden_wording": ["报名成功", "报名已完成", "提交成功"],
+      "wording_reason": "无服务端时本地模拟不得表述为真实报名成功"
+    }
+  },
+  "required_mark_note": "带 * 且说明为“必填”的项目必须填写",
+  "fields": [
+    {
+      "key": "name",
+      "type": "text",
+      "label": "称呼",
+      "required": true,
+      "help": null,
+      "placeholder": null,
+      "autocomplete": "name",
+      "inputmode": null,
+      "screen_reader_hint": "必填。请填写你在本次活动中希望被称呼的名字，可以是昵称，不必是身份证姓名。",
+      "validation": [
+        {
+          "rule": "non_empty",
+          "message": "称呼不能为空，请输入一个称呼（可以是昵称）。"
+        }
+      ]
+    },
+    {
+      "key": "email",
+      "type": "email",
+      "label": "联系邮箱",
+      "required": true,
+      "help": "用于活动通知；演示环境不会真的发送邮件。",
+      "placeholder": "例如 name@example.com",
+      "autocomplete": "email",
+      "inputmode": "email",
+      "screen_reader_hint": "必填。格式为“用户名at域名点com”，例如 name@example.com。",
+      "validation": [
+        {
+          "rule": "non_empty",
+          "message": "联系邮箱不能为空，请填写一个邮箱地址。"
+        },
+        {
+          "rule": "pattern",
+          "source": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+          "flags": "",
+          "message": "邮箱格式不完整：需要包含 @ 和一个域名，例如 name@example.com。你填的是“{value}”。"
+        }
+      ]
+    },
+    {
+      "key": "session",
+      "type": "radio",
+      "label": "活动场次",
+      "legend": "活动场次（单选，必答）",
+      "required": true,
+      "help": "只能选一个场次。",
+      "screen_reader_hint": "必答。请在以下 3 个场次中选择 1 个。",
+      "options": [
+        { "value": "周六上午场", "label": "周六上午场（9:00–12:00）" },
+        { "value": "周六下午场", "label": "周六下午场（14:00–17:00）" },
+        { "value": "周日全天", "label": "周日全天（9:00–17:00）" }
+      ],
+      "validation": [
+        {
+          "rule": "group_selected",
+          "message": "活动场次还没有选择，请在“周六上午场 / 周六下午场 / 周日全天”中选一个。"
+        }
+      ]
+    },
+    {
+      "key": "count",
+      "type": "number",
+      "label": "参与人数",
+      "required": true,
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "default": 1,
+      "help": "单场最多 10 人。",
+      "screen_reader_hint": "必填。参与人数，范围 1 到 10 人，可以用增加、减少按钮，也可以直接用键盘输入数字。",
+      "validation": [
+        {
+          "rule": "range",
+          "message": "参与人数需要在 1 到 10 之间。"
+        }
+      ]
+    },
+    {
+      "key": "pref",
+      "type": "checkbox",
+      "label": "服务偏好",
+      "legend": "服务偏好（可多选，可不选）",
+      "required": false,
+      "help": "可以选多项，也可以一项都不选。",
+      "screen_reader_hint": "可选。可多选。",
+      "options": [
+        { "value": "现场引导", "label": "现场引导" },
+        { "value": "物资整理", "label": "物资整理" },
+        { "value": "摄影记录", "label": "摄影记录" },
+        { "value": "交流协助", "label": "交流协助" }
+      ],
+      "validation": []
+    },
+    {
+      "key": "note",
+      "type": "textarea",
+      "label": "备注",
+      "required": false,
+      "help": "如：希望和同学一组参加",
+      "placeholder": "如：希望和同学一组参加",
+      "rows": 3,
+      "screen_reader_hint": "选填。可以写下你的特殊需求，比如希望和同学一组参加。",
+      "validation": []
+    }
+  ],
+  "task_steps": [
+    "查看并理解每个字段要填什么",
+    "逐项输入或选择",
+    "发现错误时看到具体原因并跳回该字段修改",
+    "核对全部答案",
+    "确认模拟提交并听到明确结果"
+  ],
+  "compat": {
+    "consumers": ["机构模式（fixed.html 的字段基线）", "个人模式（index.html 动态渲染）"],
+    "note": "两个模式必须读取本文件，不允许各自另写字段清单"
+  }
+}

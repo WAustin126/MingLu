@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>困难残疾人生活补贴申请表</title>
+</head>
+<body>
+<h1>困难残疾人生活补贴申请表</h1>
+<p>请如实填写，带 * 的为必填项。</p>
+<form>
+  <p><label for="name">申请人姓名 *</label><input id="name" name="name" type="text" required></p>
+  <p><label for="idno">身份证号码 *</label><input id="idno" name="idno" type="text" required></p>
+  <p><label for="cz">残疾人证号 *</label><input id="cz" name="cz" type="text" required></p>
+  <p><label for="tel">联系电话 *</label><input id="tel" name="tel" type="tel" required></p>
+  <p><label for="addr">现住址 *</label><input id="addr" name="addr" type="text" required></p>
+  <p><label for="birth">出生日期</label><input id="birth" name="birth" type="date"></p>
+  <p><label for="bank">补贴收款银行卡号 *</label><input id="bank" name="bank" type="text" required></p>
+  <fieldset>
+    <legend>是否享受低保</legend>
+    <label><input type="radio" name="dibao" value="yes"> 是</label>
+    <label><input type="radio" name="dibao" value="no"> 否</label>
+  </fieldset>
+  <p><label for="note">补充说明</label><textarea id="note" name="note" rows="3"></textarea></p>
+  <p><button type="submit">提交</button></p>
+</form>
+</body>
+</html>

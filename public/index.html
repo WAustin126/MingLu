@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>明路 · 无障碍填表助手</title>
+<link rel="stylesheet" href="assets/minglu.css">
+</head>
+<body>
+
+<div class="notice"><span class="notice-dot" aria-hidden="true"></span><strong>演示环境，请勿填写真实个人信息</strong><span>· 内容仅在当前浏览器暂存</span></div>
+
+<div class="page">
+
+  <header class="site-head">
+    <span class="brand">
+      <span class="brand-mark" aria-hidden="true">明</span>
+      <span><strong>明路</strong><small>无障碍填表助手</small></span>
+    </span>
+    <span class="spacer"></span>
+    <div class="toolbox">
+      <a class="tool-btn" href="settings.html" id="adminLink" hidden>管理配置</a>
+      <span class="tlabel">Aa</span>
+      <button type="button" class="tool-btn" id="fontBtn">标准</button>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <p class="eyebrow">无障碍，从一张表单开始</p>
+      <h1 id="heroTitle">把每一步，<br><em>讲明白。</em></h1>
+      <div class="hero-copy">
+        <p>机构先把表单修到无障碍合规，填表用户再在修好的表上独立完成填写——看懂要填什么，知道哪里需要修改，从第一项到最后确认，按自己的节奏完成。</p>
+      </div>
+    </section>
+
+    <div class="mode-grid">
+      <a class="mode-card" href="org/index.html">
+        <span class="who">我是机构人员</span>
+        <span class="what">导入我的表单，做无障碍诊断，一键修复，复检清零后交付给填表用户。</span>
+        <span class="go">进入机构侧工作台 →</span>
+      </a>
+      <a class="mode-card alt" href="user/index.html">
+        <span class="who">我是填表用户</span>
+        <span class="what">让表单读给我听：先听整表清单，再一项一项带我填，填错当场告诉我。</span>
+        <span class="go">进入个人侧陪填台 →</span>
+      </a>
+    </div>
+
+    <div class="trust-strip">
+      <div class="trust-item">
+        <span class="icon-box" aria-hidden="true">☰</span>
+        <span><strong>逐项引导</strong><small>大段表单，拆成清楚的小步骤</small></span>
+      </div>
+      <div class="trust-item">
+        <span class="icon-box" aria-hidden="true">⌨</span>
+        <span><strong>键盘可操作</strong><small>输入、选择、修改都有明确焦点</small></span>
+      </div>
+      <div class="trust-item">
+        <span class="icon-box" aria-hidden="true">✓</span>
+        <span><strong>自己核对与决定</strong><small>保留选择权，最后一步再确认</small></span>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-foot">
+    <strong>明路</strong> 让表单可理解，让选择由自己完成。· 无需注册 · 本地演示 · 不代替你提交
+  </footer>
+</div>
+
+<script src="config.js"></script>
+<script src="shared/schema.js"></script>
+<script src="shared/ai.js"></script>
+<script>
+  var fontBtn = document.getElementById("fontBtn");
+  fontBtn.addEventListener("click", function () {
+    Minglu.cycleFontSize();
+    fontBtn.textContent = Minglu.fontSizeLabel();
+  });
+  // 仅部署人员本机调试时，把 config.js 的 showAdminEntry 设为 true 才会出现入口
+  if (MingluAI.showAdminEntry()) {
+    document.getElementById("adminLink").hidden = false;
+  }
+</script>
+</body>
+</html>
