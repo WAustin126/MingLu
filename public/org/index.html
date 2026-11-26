@@ -56,9 +56,9 @@
 
   <ol class="stepbar" id="stepbar" aria-label="流程步骤">
     <li data-step="1" class="active"><span class="no">1</span>导入表单</li>
-    <li data-step="2"><span class="no">2</span>诊断报告</li>
-    <li data-step="3"><span class="no">3</span>一键修复</li>
-    <li data-step="4"><span class="no">4</span>复检交付</li>
+    <li data-step="2"><span class="no">2</span>检查问题</li>
+    <li data-step="3"><span class="no">3</span>一键修好</li>
+    <li data-step="4"><span class="no">4</span>完成发布</li>
   </ol>
 
   <main id="main">
@@ -66,46 +66,44 @@
     <!-- ================= 第 1 步：导入 ================= -->
     <section class="step-panel" id="panel-1" aria-labelledby="title-1">
       <h1 class="step-title" id="title-1" tabindex="-1">第 1 步：导入要检查的表单</h1>
-      <p class="step-desc">导入后先由语义层理解出<b>字段模型</b>（每项是什么、类型、是否必填、顺序、分组）。<b>没有字段模型，不进入检测。</b></p>
+      <p class="step-desc">把要检查的表单放进来：示例、文件、拍照都可以。系统会先把表单读成一份<b>内容清单</b>——每一项填什么、是不是必填，都列清楚。<b>没有这份清单，就不往下检查，免得漏掉。</b></p>
 
       <div class="card">
         <h2 style="font-size:1.05em;margin-top:0">导入方式</h2>
         <div class="btn-row" style="margin-top:0">
-          <button type="button" class="btn" id="loadSample">使用示例表单 original.html</button>
-          <label class="btn secondary" for="fileInput" style="cursor:pointer">上传 .html 文件</label>
+          <button type="button" class="btn" id="loadSample">使用示例表单</button>
+          <label class="btn secondary" for="fileInput" style="cursor:pointer">上传表单文件（.html）</label>
           <input type="file" id="fileInput" accept=".html,.htm" class="visually-hidden">
-        </div>
-        <details style="margin-top:14px">
-          <summary>或者粘贴 HTML 源码</summary>
-          <textarea id="pasteArea" rows="6" style="width:100%;margin-top:10px;font-family:monospace;font-size:.85em;padding:10px" placeholder="&lt;form&gt;…&lt;/form&gt;"></textarea>
-          <button type="button" class="btn secondary" id="loadPaste" style="margin-top:10px;min-height:44px">载入粘贴的内容</button>
-        </details>
-        <div style="margin-top:14px;border-top:1px dashed #c9cdc4;padding-top:12px">
-          <label class="btn secondary" for="aiFileInput" style="cursor:pointer">上传照片 / PDF / Word（AI 识别）</label>
+          <label class="btn" for="aiFileInput" style="cursor:pointer">上传照片 / PDF / Word</label>
           <input type="file" id="aiFileInput" accept="image/*,.pdf,.docx" class="visually-hidden">
-          <p class="foot-note" style="margin-top:8px">纸质表拍照、PDF 电子表、Word 文档都可以：AI 先读出字段结构设为当前表单。只能读出「有哪些字段」，读不出原表的结构问题；下一步的诊断将读取示例表的问题清单，页面会标明来源。</p>
         </div>
-      </div>
-
-      <div class="card" style="margin-top:16px">
-        <h2 style="font-size:1.05em;margin-top:0">或者：导入别处已处理好的产物</h2>
-        <p class="foot-note" style="margin-top:0">在千问办公别处跑完的 <code>form.schema.json</code> + <code>issues.json</code>，可直接拿回来用，不必重跑全流程。导入结果以页面显示的「文件名 + 字段数」为准，不做静默成功。</p>
-        <div class="btn-row">
-          <label class="btn secondary" for="schemaInput" style="cursor:pointer">选择 form.schema.json</label>
-          <input type="file" id="schemaInput" accept=".json,application/json" class="visually-hidden">
-          <label class="btn secondary" for="issuesInput" style="cursor:pointer">选择 issues.json（可选）</label>
-          <input type="file" id="issuesInput" accept=".json,application/json" class="visually-hidden">
-        </div>
-        <button type="button" class="btn" id="applyImport" style="margin-top:12px">导入产物并设为当前表单</button>
-        <div id="importFileState" class="foot-note" style="margin-top:8px"></div>
+        <p class="foot-note" style="margin-top:8px">纸质表拍照、PDF 电子表、Word 文档都可以，AI 会把里面的填写项读出来。只能读出「有哪些项」，读不出原表的结构问题；下一步的检查将读取示例表的问题清单，页面会标明来源。导入成功后自动进入下一步。</p>
+        <details style="margin-top:12px">
+          <summary>高级方式（粘贴代码 / 导入千问办公的处理结果）</summary>
+          <div style="margin-top:10px">
+            <textarea id="pasteArea" rows="6" style="width:100%;font-family:monospace;font-size:.85em;padding:10px" placeholder="把表单的 HTML 代码粘贴到这里"></textarea>
+            <button type="button" class="btn secondary" id="loadPaste" style="margin-top:10px;min-height:44px">载入粘贴的内容</button>
+          </div>
+          <div style="margin-top:16px;border-top:1px dashed #c9cdc4;padding-top:12px">
+            <p class="foot-note" style="margin-top:0">在千问办公别处跑完的 <code>form.schema.json</code> + <code>issues.json</code>，可直接拿回来用，不必重跑全流程。导入认不认，看页面显示的文件名和字段数。</p>
+            <div class="btn-row">
+              <label class="btn secondary" for="schemaInput" style="cursor:pointer">选择 form.schema.json</label>
+              <input type="file" id="schemaInput" accept=".json,application/json" class="visually-hidden">
+              <label class="btn secondary" for="issuesInput" style="cursor:pointer">选择 issues.json（可选）</label>
+              <input type="file" id="issuesInput" accept=".json,application/json" class="visually-hidden">
+            </div>
+            <button type="button" class="btn" id="applyImport" style="margin-top:12px">导入并设为当前表单</button>
+            <div id="importFileState" class="foot-note" style="margin-top:8px"></div>
+          </div>
+        </details>
       </div>
 
       <div id="importResult" aria-live="polite" style="margin-top:16px"></div>
 
       <div class="model" id="modelCard" hidden>
-        <h2 style="font-size:1.02em;margin:0 0 8px">字段模型</h2>
+        <h2 style="font-size:1.02em;margin:0 0 8px">这张表的内容清单</h2>
         <div class="kv">
-          <span>字段 <b id="mFields">0</b> 项</span>
+          <span>要填的项 <b id="mFields">0</b> 项</span>
           <span>必填 <b id="mReq">0</b> 项</span>
           <span>选项组 <b id="mGroups">0</b> 组</span>
           <span>来源 <b id="mSource">—</b></span>
@@ -114,20 +112,20 @@
       </div>
 
       <div class="btn-row">
-        <button type="button" class="btn" id="toStep2" disabled>下一步：查看诊断报告</button>
+        <button type="button" class="btn" id="toStep2" disabled>下一步：查看检查结果</button>
       </div>
       <p class="foot-note" id="gate1"></p>
     </section>
 
     <!-- ================= 第 2 步：诊断 ================= -->
     <section class="step-panel" id="panel-2" hidden aria-labelledby="title-2">
-      <h1 class="step-title" id="title-2" tabindex="-1">第 2 步：无障碍诊断报告</h1>
+      <h1 class="step-title" id="title-2" tabindex="-1">第 2 步：检查结果</h1>
       <p class="step-desc" id="diagSource"></p>
 
       <div class="stat3" id="stat3">
         <div class="cell"><span class="n" id="statTotal">0</span><span class="l">问题总数</span></div>
         <div class="cell sev"><span class="n" id="statSevere">0</span><span class="l">严重（会阻断独立填写）</span></div>
-        <div class="cell pend"><span class="n" id="statPending">0</span><span class="l">待确认（需人工判断）</span></div>
+        <div class="cell pend"><span class="n" id="statPending">0</span><span class="l">需要你拍板（拿不准的项）</span></div>
       </div>
       <p class="foot-note" id="statNote"></p>
 
@@ -137,22 +135,22 @@
 
       <div class="btn-row">
         <button type="button" class="btn ghost" id="backTo1">上一步</button>
-        <button type="button" class="btn secondary" id="dlIssues">下载诊断报告 issues.json</button>
-        <button type="button" class="btn" id="toStep3" disabled>下一步：一键修复</button>
+        <button type="button" class="btn secondary" id="dlIssues">下载问题清单</button>
+        <button type="button" class="btn" id="toStep3" disabled>下一步：一键修好</button>
       </div>
       <p class="foot-note" id="gate2"></p>
     </section>
 
     <!-- ================= 第 3 步：修复 ================= -->
     <section class="step-panel" id="panel-3" hidden aria-labelledby="title-3">
-      <h1 class="step-title" id="title-3" tabindex="-1">第 3 步：一键修复</h1>
-      <p class="step-desc">每条问题对应一个修复动作。修复只动<b>结构与标注</b>，不动业务内容、不改字段含义；生成新的 <code>fixed.html</code>，原表不动，可随时回退。</p>
+      <h1 class="step-title" id="title-3" tabindex="-1">第 3 步：一键修好</h1>
+      <p class="step-desc">点一下，把检查出的问题一次修好。只改表单的<b>结构和标注</b>，不动要填的内容；修好后生成一份新表单，原表不动，不满意可以重来。</p>
 
       <div class="card">
-        <h2 style="font-size:1.02em;margin-top:0">进入修复范围的项</h2>
-        <p class="foot-note" style="margin-top:0">只包含「确定问题」与「已确认为问题」的待确认项；被忽略的项不修复、不计入。</p>
+        <h2 style="font-size:1.02em;margin-top:0">这次要修的问题</h2>
+        <p class="foot-note" style="margin-top:0">包含确定有问题的项，和你已确认的项；被忽略的项不修。</p>
         <ul class="fixlog" id="fixScope"></ul>
-        <button type="button" class="btn" id="doFix">一键修复勾选项</button>
+        <button type="button" class="btn" id="doFix">一键修好</button>
       </div>
 
       <ul class="fixlog" id="fixlog" aria-live="polite" style="margin-top:16px"></ul>
@@ -173,13 +171,13 @@
 
       <div class="btn-row">
         <button type="button" class="btn ghost" id="backTo2">上一步</button>
-        <button type="button" class="btn" id="toStep4" disabled>下一步：复检</button>
+        <button type="button" class="btn" id="toStep4" disabled>下一步：看复检结果</button>
       </div>
     </section>
 
     <!-- ================= 第 4 步：复检交付 ================= -->
     <section class="step-panel" id="panel-4" hidden aria-labelledby="title-4">
-      <h1 class="step-title" id="title-4" tabindex="-1">第 4 步：复检与交付</h1>
+      <h1 class="step-title" id="title-4" tabindex="-1">第 4 步：复检与发布</h1>
 
       <div id="recheckResult"></div>
       <div id="recheckDetail"></div>
@@ -187,12 +185,12 @@
       <div id="deliverGate" class="gate"></div>
 
       <div class="card" id="deliverBox">
-        <h2 style="font-size:1.05em;margin-top:0">交付物（三件套，每件可复查）</h2>
+        <h2 style="font-size:1.05em;margin-top:0">修好的表单和报告（每件都能复查）</h2>
         <table class="plain">
           <thead><tr><th>产物</th><th>用途</th><th>怎么复查</th></tr></thead>
           <tbody>
             <tr><td>issues.json</td><td>问题清单：每条问题、等级、定位与证据</td><td>逐条对照本页报告与原表行号</td></tr>
-            <tr><td>form.schema.json</td><td>字段模型：字段、类型、必填、顺序、分组</td><td>字段数可与第 1 步的字段模型核对</td></tr>
+            <tr><td>form.schema.json</td><td>内容清单：每一项、类型、必填、顺序、分组</td><td>项数可与第 1 步的内容清单核对</td></tr>
             <tr><td>fixed.html</td><td>修复版表单：可预览、可下载、可发布到个人端</td><td>用同一扫描器复扫验证</td></tr>
           </tbody>
         </table>
@@ -209,8 +207,8 @@
         <ul style="margin:0;padding-left:1.2em;font-size:.94em;line-height:1.9">
           <li><b>只检结构与格式</b>：标签关联、必填标识、报错说明、字段完整性；<b>不判业务内容真假</b>。</li>
           <li><b>不收集真实个人信息</b>：不收集、不保存；演示与测试数据全部虚构。</li>
-          <li><b>拿不准不硬判</b>：无法确定的项进「待确认」，由机构人员逐项决定，不自动修复。</li>
-          <li><b>极端异形表单</b>：结构极端异形时进待确认，或建议走线下窗口，不硬检、不硬修。</li>
+          <li><b>拿不准不硬判</b>：无法确定的项标成「需要你拍板」，由机构人员逐项决定，不自动修复。</li>
+          <li><b>极端异形表单</b>：结构太特殊时进「需要你拍板」，或建议走线下窗口，不硬检、不硬修。</li>
           <li><b>修复可回退</b>：修复生成新文件、原表不动；不满意可回退重来。</li>
           <li><b>数字口径</b>：本页「13 类 / 16 处」为示例表 original.html 的扫描结果；修复后 0 类 / 0 处为同一扫描器 <code>a11y_scan.py</code> 的复扫结果，仅适用于这张示例表。</li>
         </ul>
@@ -353,12 +351,12 @@
     var hasModel = !!(state.schema && state.schema.fields && state.schema.fields.length > 0);
     $("#toStep2").disabled = !hasModel;
     $("#gate1").textContent = hasModel ? "" :
-      "还没有字段模型（识别到 0 个字段），按设计不进入检测。请换一份表单，或走线下窗口处理。";
+      "还没有导入表单（现在是 0 项）。先从上面选一种方式导入，这一步的按钮就会亮起来。";
 
     var left = pendingLeft();
     $("#toStep3").disabled = left > 0;
     $("#gate2").textContent = left > 0
-      ? "还有 " + left + " 项「待确认」没有处理：先把它们逐项点「确认」或「忽略」，才能进入修复。这是护栏——防止把好字段改坏。"
+      ? "还有 " + left + " 项「需要你拍板」没有处理：逐项点「确认」或「忽略」，也可以点检查页上方的按钮全部按建议处理。处理完才能修——这是防止把好字段改坏的护栏。"
       : "";
 
     $("#toStep4").disabled = !state.fixedDone;
@@ -416,7 +414,7 @@
     try {
       state.schema = MingluImport.fromHtml(html, name);
       state.rawModel = state.schema;
-      state.schemaSource = "从导入的 HTML 实时解析";
+      state.schemaSource = "从 HTML 文件当场读出";
     } catch (e) {
       state.schema = { fields: [] };
       state.rawModel = null;
@@ -425,6 +423,7 @@
         esc(e && e.message || "未知原因") + "。按设计不进入检测。</div>";
     }
     renderModel();
+    if (state.schema && state.schema.fields && state.schema.fields.length) { advanceToCheck(); }
   }
 
   $("#loadSample").addEventListener("click", function () {
@@ -437,7 +436,7 @@
       // 且识别不到必填——少的 1 项和 0 必填本身就是 A11Y-011 / A11Y-009 这两处缺陷。
       if (res[1] && res[1].fields && res[1].fields.length) {
         state.schema = res[1];
-        state.schemaSource = "语义层理解（form.schema.json）";
+        state.schemaSource = "精读结果（form.schema.json）";
         renderModel();
       }
     }).catch(function () {
@@ -478,6 +477,7 @@
       "」：字段 " + schema.fields.length + " 项，已设为当前表单。原表的结构问题不在识别范围内，" +
       "下一步将读取示例表的问题清单（页面会标明来源）。</div>";
     renderModel();
+    advanceToCheck();
   }
 
   function aiImportFail(err) {
@@ -613,17 +613,19 @@
     }
     $("#importResult").innerHTML = '<div class="alert alert-ok">已导入：' + esc(p.schemaName) +
       "，字段 " + p.schema.fields.length + " 项" +
-      (p.issues ? "；同时导入诊断结果 " + p.issues.issues.length + " 条。" : "；未导入诊断结果，" +
+      (p.issues ? "；同时导入检查结果 " + p.issues.issues.length + " 条。" : "；未导入检查结果，" +
         "下一步将读取示例表的问题清单（页面会标明来源）。") + "</div>";
     renderModel();
     renderReport();
+    advanceToCheck();
   });
 
-  $("#toStep2").addEventListener("click", function () {
-    if (pendingLeft() || !state.report || (state.reportSource === "" && !state.report)) {
-      loadReport().then(function () { goStep(2); });
-    } else { goStep(2); }
-  });
+  function advanceToCheck() {
+    if (!state.report) { loadReport().then(function () { goStep(2); }); }
+    else { goStep(2); }
+  }
+
+  $("#toStep2").addEventListener("click", advanceToCheck);
 
   /* ================= 第 2 步：诊断报告 ================= */
 
@@ -649,7 +651,7 @@
 
     var instances = (state.report.summary && state.report.summary.total_instances) || 0;
     $("#statNote").textContent = "共 " + violationsText(issues) + " 处；" +
-      (pending ? "其中 " + pending + " 项需要你逐项确认或忽略后，才进入修复范围。" : "待确认项已处理完，可以进入修复。");
+      (pending ? "其中 " + pending + " 项需要你确认一下：逐项看，或者点下方按钮全部按建议处理，处理完才进入修复。" : "需要你拍板的项已处理完，可以进入修复。");
 
     $("#diagSource").textContent = isSample()
       ? "以下为本示例表单（original.html）的真实静态扫描结果，由规则层 a11y_scan.py 生成，证据含原文件行号。"
@@ -680,9 +682,11 @@
     var guard = $("#pendingGuard");
     var left = pendingLeft();
     guard.innerHTML = left
-      ? '<div class="alert alert-warn">待确认 ' + left + " 项：这些是靠读脚本推断出来的，写法不同可能误判。" +
-        "请逐项点「确认」或「忽略」；未处理前不进修复范围。</div>"
-      : (pendingCountOriginal() ? '<div class="alert alert-ok">待确认项已全部处理，可以进入修复。</div>' : "");
+      ? '<div class="alert alert-warn">有 ' + left + " 项需要你拍板：这些是靠读脚本推断出来的，写法不同可能误判。" +
+        "逐项点「确认」或「忽略」都行；未处理前不进修复范围。" +
+        '<div style="margin-top:10px"><button type="button" class="btn" id="confirmAllPending">全部按建议处理（确认这 ' + left + ' 项）</button>' +
+        ' <span class="foot-note">拿不准的先点这个，下面每一项仍然可以单独改。</span></div></div>'
+      : (pendingCountOriginal() ? '<div class="alert alert-ok">需要你拍板的项已全部处理，可以进入修复。</div>' : "");
     refreshGates();
   }
 
@@ -717,8 +721,9 @@
             (dec === "confirmed" ? "已确认" : dec === "ignored" ? "已忽略" : "待确认") + "</span>"
           : "") +
         '<span class="spacer" style="flex:1"></span>' +
-        '<button type="button" class="tool-btn" data-toggle="' + esc(it.id) + '" aria-expanded="false" aria-controls="body-' + esc(it.id) + '">展开</button>' +
+        '<button type="button" class="tool-btn" data-toggle="' + esc(it.id) + '" aria-expanded="false" aria-controls="body-' + esc(it.id) + '">详情</button>' +
       "</div>" +
+      (it.detail ? '<p style="margin:6px 0 0;font-size:.94em">' + esc(it.detail.length > 90 ? it.detail.slice(0, 90) + "…" : it.detail) + "</p>" : "") +
       '<div class="body" id="body-' + esc(it.id) + '" hidden>' +
         "<dl>" +
           "<dt>① 所在行号</dt><dd>" + esc(String(lines)) + "</dd>" +
@@ -758,6 +763,15 @@
     }
   });
 
+  $("#pendingGuard").addEventListener("click", function (e) {
+    if (!e.target.closest("#confirmAllPending")) { return; }
+    (state.report.issues || []).forEach(function (it) {
+      if (UNCERTAIN_CATS[it.category] && !state.decisions[it.id]) { state.decisions[it.id] = "confirmed"; }
+    });
+    renderReport();
+    $("#toStep3").focus();
+  });
+
   $("#dlIssues").addEventListener("click", function () {
     if (state.report) { Minglu.download("issues.json", JSON.stringify(state.report, null, 2), "application/json"); }
   });
@@ -770,13 +784,13 @@
     var list = repairSet();
     var ul = $("#fixScope");
     ul.innerHTML = list.map(function (it) {
-      return "<li><span class='mark'>•</span> " + esc(it.id) + " " + esc(it.title) +
+      return "<li><span class='mark'>•</span> " + esc(it.title) +
         " <span class='foot-note'>→ " + esc(FIX_ACTION[it.category] || (it.proposed_fix || "按诊断建议修")) + "</span></li>";
     }).join("") || "<li>没有进入修复范围的项。</li>";
 
     var ignored = (state.report.issues || []).filter(function (it) { return state.decisions[it.id] === "ignored"; });
     ul.innerHTML += ignored.length
-      ? "<li><span class='mark'>—</span> 已忽略（不修复）：" + ignored.map(function (it) { return esc(it.id); }).join("、") + "</li>"
+      ? "<li><span class='mark'>—</span> 已忽略（不修复）：" + ignored.map(function (it) { return esc(it.title); }).join("、") + "</li>"
       : "";
   }
 
@@ -799,6 +813,7 @@
         state.fixedDone = true;
         $("#doFix").disabled = false;
         refreshGates();
+        setTimeout(function () { if (state.fixedDone) { runRecheck(); goStep(4); } }, 6000);
         return;
       }
       var it = items[i];
