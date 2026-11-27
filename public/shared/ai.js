@@ -207,10 +207,12 @@
         label: field.label,
         type: field.type || "text",
         required: !!field.required,
+        hint: field.help || "",
+        help: field.screen_reader_hint || "",
         options: (field.options || []).map(function (o) { return { value: o.value, label: o.label }; })
       }
     }).then(function (d) {
-      return { ok: true, value: d.value, readback: d.readback, certain: d.certain !== false, model: d.model };
+      return { ok: true, value: d.value, readback: d.readback, certain: d.certain !== false, notFound: d.notFound === true, model: d.model };
     });
   };
 
