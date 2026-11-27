@@ -193,6 +193,27 @@
     });
   };
 
+  /* ---------- 语音规整（个人端语音填表用） ---------- */
+  AI.voiceFill = function (field, transcript) {
+    var s = AI.getSettings();
+    if (s.mode !== "proxy") {
+      return Promise.reject({ code: "NO_PROXY", message: "语音规整需要服务端代理模式。" });
+    }
+    return callModel({
+      __path: "/api/voice-fill",
+      transcript: transcript || "",
+      today: new Date().toISOString().slice(0, 10),
+      field: {
+        label: field.label,
+        type: field.type || "text",
+        required: !!field.required,
+        options: (field.options || []).map(function (o) { return { value: o.value, label: o.label }; })
+      }
+    }).then(function (d) {
+      return { ok: true, value: d.value, readback: d.readback, certain: d.certain !== false, model: d.model };
+    });
+  };
+
   /* ---------- 解析一张表（个人端自己导入用） ---------- */
   AI.parseFormText = function (text, imageDataUrl) {
     var s = AI.getSettings();

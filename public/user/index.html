@@ -31,6 +31,17 @@
   .dlg-pane textarea { width:100%; min-height:130px; padding:14px; border:1px solid #8b9e91; border-radius:10px; font-family:inherit; font-size:.92rem; }
   .dlg-pane input[type="file"] { width:100%; padding:10px; border:1px solid var(--line); border-radius:9px; font-size:.85rem; background:var(--bg); }
   .shortcut-note { font-size:.76rem; color:var(--muted); margin-top:12px; }
+
+    .opts-tools { margin: 0 0 10px; }
+    .opt-speak { float: right; border: 1px solid #b9cdc9; background: #fff; border-radius: 999px; padding: 2px 10px; font-size: .95rem; cursor: pointer; line-height: 1.5; }
+    .voice-row { margin-top: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .voice-note { font-size: .9rem; color: #57606a; }
+    .voice-card { margin-top: 16px; border: 2px solid #0E5C6B; border-radius: 14px; padding: 16px; background: #f2faf8; }
+    .voice-card-title { margin: 0 0 4px; font-size: .95rem; color: #3D4A52; }
+    .voice-card-value { margin: 0 0 10px; font-size: 1.5rem; font-weight: 700; color: #1A2228; word-break: break-all; }
+    .voice-card-warn { margin: 0 0 10px; color: #9a3412; font-size: .92rem; }
+    .voice-card-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+    .voice-card-hint { margin: 10px 0 0; font-size: .85rem; color: #57606a; }
 </style>
 </head>
 <body>
@@ -396,23 +407,29 @@
         (f.placeholder ? ' placeholder="' + Minglu.escapeHtml(f.placeholder) + '"' : "") + ">" +
         Minglu.escapeHtml(val || "") + "</textarea>";
     } else if (f.type === "radio") {
+      html += '<p class="opts-tools"><button type="button" class="btn secondary" id="readAllOpts">朗读全部选项</button></p>';
       html += '<div class="opts" role="radiogroup" aria-labelledby="flabel">';
       (f.options || []).forEach(function (o) {
         var checked = val === o.value ? " checked" : "";
         html += '<label><input type="radio" name="answer" value="' + Minglu.escapeHtml(o.value) + '"' + checked + "> " +
-          Minglu.escapeHtml(o.label) + "</label>";
+          Minglu.escapeHtml(o.label) +
+          ' <button type="button" class="opt-speak" data-opt-label="' + Minglu.escapeHtml(o.label) + '" aria-label="朗读选项：' + Minglu.escapeHtml(o.label) + '">🔊</button></label>';
       });
       html += "</div>";
     } else if (f.type === "checkbox") {
       var arr = Array.isArray(val) ? val : [];
+      html += '<p class="opts-tools"><button type="button" class="btn secondary" id="readAllOpts">朗读全部选项</button></p>';
       html += '<div class="opts" role="group" aria-labelledby="flabel">';
       (f.options || []).forEach(function (o) {
         var checked = arr.indexOf(o.value) >= 0 ? " checked" : "";
         html += '<label><input type="checkbox" name="answer" value="' + Minglu.escapeHtml(o.value) + '"' + checked + "> " +
-          Minglu.escapeHtml(o.label) + "</label>";
+          Minglu.escapeHtml(o.label) +
+          ' <button type="button" class="opt-speak" data-opt-label="' + Minglu.escapeHtml(o.label) + '" aria-label="朗读选项：' + Minglu.escapeHtml(o.label) + '">🔊</button></label>';
       });
       html += "</div>";
     }
+    html += '<div class="voice-row"><button type="button" class="btn secondary" id="voiceFillBtn">🎤 说着填</button>' +
+      '<span class="voice-note" id="voiceNote" role="status"></span></div><div id="voiceCard"></div>';
     stage.innerHTML = html;
 
     var n = state.fields.length;
@@ -425,6 +442,170 @@
     if (first) { first.focus(); }
     // 短句播报：一句一个信息点
     Minglu.speak(f.label + "。" + (f.required ? "必填。" : "选填。") + (helpText ? helpText : ""));
+    wireVoiceControls(f);
+  }
+
+  /* ---------- 语音填表与选项播报 ---------- */
+  var VoiceSR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  var activeRec = null;
+
+  function speakNow(text) {
+    Minglu.setTTS(true);
+    var b = $("#ttsBtn");
+    if (b) { b.textContent = "开启"; b.setAttribute("aria-pressed", "true"); }
+    if (window.speechSynthesis) { try { speechSynthesis.cancel(); } catch (e) {} }
+    Minglu.speak(text);
+  }
+
+  function listenOnce(onText, onFail) {
+    if (!VoiceSR) { if (onFail) { onFail("unsupported"); } return; }
+    try { if (activeRec) { activeRec.abort(); } } catch (e) {}
+    var rec = new VoiceSR();
+    activeRec = rec;
+    rec.lang = "zh-CN";
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    var got = false;
+    rec.onresult = function (ev) {
+      got = true;
+      var t = "";
+      try { t = ev.results[0][0].transcript || ""; } catch (e) {}
+      if (activeRec === rec) { activeRec = null; }
+      onText(String(t).trim());
+    };
+    rec.onerror = function (ev) {
+      if (activeRec === rec) { activeRec = null; }
+      if (!got && onFail) { onFail(ev && ev.error ? ev.error : "error"); }
+    };
+    try { rec.start(); } catch (e) { if (onFail) { onFail("start"); } }
+  }
+
+  function wireVoiceControls(f) {
+    Array.prototype.forEach.call(document.querySelectorAll(".opt-speak"), function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        speakNow(btn.getAttribute("data-opt-label") || "");
+      });
+    });
+    var readAll = $("#readAllOpts");
+    if (readAll) {
+      readAll.addEventListener("click", function () {
+        var labels = (f.options || []).map(function (o) { return o.label; });
+        var cn = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二"];
+        var parts = ["共 " + labels.length + " 项。"];
+        labels.forEach(function (l, i) { parts.push("选项" + (cn[i] || String(i + 1)) + "：" + l + "。"); });
+        parts.push("听清了再选，点选项本身才会选中。");
+        speakNow(parts.join(""));
+      });
+    }
+    var vbtn = $("#voiceFillBtn");
+    var note = $("#voiceNote");
+    if (!vbtn) { return; }
+    if (!VoiceSR) {
+      vbtn.style.display = "none";
+      if (note) { note.textContent = "这个浏览器不支持语音输入，可以打字填。"; }
+      return;
+    }
+    vbtn.addEventListener("click", function () {
+      if (!window.isSecureContext) {
+        if (note) { note.textContent = "语音填表需要 HTTPS 安全页面，这个公网地址暂时用不了；可以先打字填。"; }
+        speakNow("语音填表需要 HTTPS 安全页面，这个地址暂时用不了。可以先打字填。");
+        return;
+      }
+      startVoiceFill(f);
+    });
+  }
+
+  function startVoiceFill(f) {
+    var note = $("#voiceNote");
+    var card = $("#voiceCard");
+    if (card) { card.innerHTML = ""; }
+    if (note) { note.textContent = "请说出这一项要填的内容……"; }
+    speakNow(f.label + "。请说出要填的内容。");
+    setTimeout(function () {
+      listenOnce(function (text) {
+        if (!text) { if (note) { note.textContent = "没有听清，请再点一次「说着填」。"; } return; }
+        if (note) { note.textContent = "听到了，正在整理成能填的格式……"; }
+        MingluAI.voiceFill(f, text).then(function (r) {
+          if (note) { note.textContent = ""; }
+          showVoiceCard(f, r);
+        }).catch(function (err) {
+          if (window.console && err && err.message) { console.warn("[明路] 语音规整失败：", err.message); }
+          if (note) { note.textContent = "AI 整理失败，可以打字填，或再试一次。"; }
+          speakNow("整理失败了。可以打字填，或者再试一次。");
+        });
+      }, function () {
+        if (note) { note.textContent = "没有听到声音，请再点一次「说着填」。"; }
+      });
+    }, 900);
+  }
+
+  function maskForCard(v) {
+    var d = String(v == null ? "" : v).replace(/[\s-]/g, "");
+    if (/^\d{7,}$/.test(d)) { return d.slice(0, 2) + " •••• " + d.slice(-4); }
+    return String(v == null ? "" : v);
+  }
+
+  function displayValue(f, value) {
+    if (f.type === "radio") {
+      var m = (f.options || []).filter(function (o) { return o.value === value; })[0];
+      return m ? m.label : String(value == null ? "" : value);
+    }
+    if (f.type === "checkbox" && Array.isArray(value)) {
+      return value.map(function (v) {
+        var mm = (f.options || []).filter(function (o) { return o.value === v; })[0];
+        return mm ? mm.label : v;
+      }).join("、");
+    }
+    return maskForCard(value);
+  }
+
+  function showVoiceCard(f, r) {
+    var card = $("#voiceCard");
+    if (!card) { return; }
+    var shown = displayValue(f, r.value);
+    card.innerHTML = '<div class="voice-card" role="group" aria-label="语音填写确认">' +
+      '<p class="voice-card-title">将要填写的是：</p>' +
+      '<p class="voice-card-value">' + Minglu.escapeHtml(shown) + "</p>" +
+      (r.certain ? "" : '<p class="voice-card-warn">AI 对这个结果不太确定，请仔细核对再确认。</p>') +
+      '<div class="voice-card-btns">' +
+      '<button type="button" class="btn" id="vfOk">就填这个</button>' +
+      '<button type="button" class="btn secondary" id="vfRetry">重说</button>' +
+      '<button type="button" class="btn secondary" id="vfCancel">取消</button>' +
+      "</div>" +
+      '<p class="voice-card-hint">也可以直接说「对」确认、说「重说」再说一次。</p></div>';
+    speakNow((r.readback || ("将要填写的是：" + shown + "。")) + "对吗？");
+    $("#vfOk").addEventListener("click", function () { applyVoiceValue(f, r.value); });
+    $("#vfRetry").addEventListener("click", function () { card.innerHTML = ""; startVoiceFill(f); });
+    $("#vfCancel").addEventListener("click", function () { card.innerHTML = ""; speakNow("已取消，没有填入。"); });
+    setTimeout(function () {
+      listenOnce(function (t) {
+        if (!document.getElementById("vfOk")) { return; }
+        if (/^(对|对的|确认|好|好的|是|是的|可以|没错|就这个)[。！!]?$/.test(t)) { applyVoiceValue(f, r.value); }
+        else if (/重说|再说|不对|不是/.test(t)) { card.innerHTML = ""; startVoiceFill(f); }
+        else if (/取消|不用了|算了/.test(t)) { card.innerHTML = ""; speakNow("已取消，没有填入。"); }
+      }, function () { /* 没听清就不动作，等按钮 */ });
+    }, 1500);
+  }
+
+  function applyVoiceValue(f, value) {
+    var card = $("#voiceCard");
+    if (f.type === "radio") {
+      Array.prototype.forEach.call(document.querySelectorAll('input[name="answer"]'), function (inp) {
+        inp.checked = inp.value === String(value);
+      });
+    } else if (f.type === "checkbox") {
+      var arr = Array.isArray(value) ? value.map(String) : [String(value)];
+      Array.prototype.forEach.call(document.querySelectorAll('input[name="answer"]'), function (inp) {
+        inp.checked = arr.indexOf(inp.value) >= 0;
+      });
+    } else {
+      var el = document.getElementById("answer");
+      if (el) { el.value = value == null ? "" : String(value); }
+    }
+    if (card) { card.innerHTML = ""; }
+    speakNow("已填入：" + displayValue(f, value) + "。可以点下一项继续。");
   }
 
   /* ---------- AI 解释 / 原表说明 ---------- */
