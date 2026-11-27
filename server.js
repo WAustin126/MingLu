@@ -50,6 +50,9 @@ const MODEL_FILING = process.env.MINGLU_MODEL_FILING || 'ZheJiang-TongYiQianWen-
 const UPSTREAM = BASE_URL + '/chat/completions';
 const UPSTREAM_TIMEOUT_MS = 25000;
 const MAX_BODY = 16 * 1024;
+const ASR_MAX_BODY = 3 * 1024 * 1024;
+const ASR_MODEL = process.env.MINGLU_ASR_MODEL || 'qwen-audio-turbo';
+const ASR_URL = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
 
 // 限流：每个来源 IP 每分钟 8 次、每小时 60 次。演示规模够用，也不至于被当成免费 API。
 const RATE_WINDOW_MS = 60 * 1000;
@@ -415,6 +418,87 @@ function resolveSpokenDate(transcript, todayStr) {
     }
   }
   return null;
+}
+
+async function handleAsr(req, res) {
+  if (!API_KEY) {
+    return json(res, 503, {
+      error: '语音识别未接入：服务端未配置模型凭据。可以改用打字填写。',
+      configured: false
+    });
+  }
+  const ip = clientIp(req);
+  if (rateLimited(ip)) {
+    return json(res, 429, { error: '说得太快了，请等一分钟再试。' }, { 'Retry-After': '60' });
+  }
+  const ctype = String(req.headers['content-type'] || '');
+  if (!ctype.toLowerCase().includes('application/json')) {
+    return json(res, 415, { error: '只接受 application/json。' });
+  }
+  const read = await readJsonBody(req, ASR_MAX_BODY);
+  if (read.error) {
+    if (read.code === 413) { res.on('finish', () => { try { req.destroy(); } catch (e) { } }); }
+    return json(res, read.code, { error: read.error });
+  }
+  const body = read.value || {};
+  const audio = typeof body.audio === 'string' ? body.audio : '';
+  if (!audio || audio.length < 200 || audio.length > ASR_MAX_BODY) {
+    return json(res, 400, { error: '没有收到有效的录音。' });
+  }
+  if (!/^[A-Za-z0-9+/=\r\n]+$/.test(audio)) {
+    return json(res, 400, { error: '录音格式不对。' });
+  }
+  // 录音只转发给识别模型，不落盘、不记内容日志（只记转写字数与耗时）
+  const payload = {
+    model: ASR_MODEL,
+    input: {
+      messages: [{
+        role: 'user',
+        content: [
+          { audio: 'data:audio/wav;base64,' + audio },
+          { text: '你是一个语音转写工具。把这段音频里人说的话逐字转写成文字。只输出转写出的原文，不要加任何说明、引号或前缀；如果完全听不到人声，输出空字符串。' }
+        ]
+      }]
+    }
+  };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+  const startedAt = Date.now();
+  let upstream;
+  try {
+    upstream = await fetch(ASR_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + API_KEY },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    console.error('[asr] upstream ' + (e && e.name === 'AbortError' ? 'timeout' : 'network') + ' after ' + (Date.now() - startedAt) + 'ms');
+    return json(res, 502, { error: '语音识别服务暂时连不上，请再试一次，或改用打字。' });
+  }
+  clearTimeout(timer);
+  if (!upstream.ok) {
+    console.error('[asr] upstream status ' + upstream.status);
+    return json(res, 502, { error: '语音识别没成功，请再试一次，或改用打字。' });
+  }
+  let data;
+  try { data = await upstream.json(); } catch (e) {
+    return json(res, 502, { error: '语音识别返回异常，请再试一次。' });
+  }
+  let text = '';
+  try {
+    const content = data.output.choices[0].message.content;
+    if (typeof content === 'string') { text = content; }
+    else if (Array.isArray(content)) { text = content.map((c) => (c && c.text) || '').join(''); }
+  } catch (e) {}
+  text = String(text || '').trim()
+    .replace(/^这段音频(里|的)?(转写文字是|内容是|是)[:：]?\s*/, '')
+    .replace(/^转写(文字|结果)[:：]\s*/, '')
+    .replace(/^[''"「『]|[''"」』]$/g, '').trim();
+  if (['嗯', '啊', '呃', '空字符串', '（空字符串）', '(空字符串)'].indexOf(text) >= 0) { text = ''; }
+  console.log('[asr] ok chars=' + text.length + ' ms=' + (Date.now() - startedAt));
+  return json(res, 200, { text, model: ASR_MODEL });
 }
 
 async function handleVoiceFill(req, res) {
@@ -811,6 +895,14 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (pathname === '/api/asr') {
+    if (req.method !== 'POST') { return json(res, 405, { error: '只接受 POST。' }); }
+    handleAsr(req, res).catch((e) => {
+      console.error('[asr] handler error', e && e.message);
+      if (!res.headersSent) { json(res, 500, { error: '服务器出错了，请再试一次。' }); }
+    });
+    return;
+  }
   if (pathname === '/api/voice-fill') {
     if (method !== 'POST') return json(res, 405, { error: 'method not allowed' });
     handleVoiceFill(req, res).catch((e) => {

@@ -216,6 +216,21 @@
     });
   };
 
+  // 浏览器录音（WAV base64）→ 服务端识别（自有服务器转写，不依赖浏览器厂商识别服务）
+  AI.asr = function (base64Wav) {
+    var s = AI.getSettings();
+    if (s.mode !== "proxy") {
+      return Promise.reject({ code: "NO_PROXY", message: "语音识别需要服务端代理模式。" });
+    }
+    return callModel({
+      __path: "/api/asr",
+      audio: base64Wav || "",
+      format: "wav"
+    }).then(function (d) {
+      return { ok: true, text: d.text || "", model: d.model };
+    });
+  };
+
   /* ---------- 解析一张表（个人端自己导入用） ---------- */
   AI.parseFormText = function (text, imageDataUrl) {
     var s = AI.getSettings();

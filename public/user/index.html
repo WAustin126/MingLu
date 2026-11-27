@@ -448,8 +448,7 @@
   }
 
   /* ---------- 语音填表与选项播报 ---------- */
-  var VoiceSR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
-  var activeRec = null;
+  var VoiceOK = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && (window.AudioContext || window.webkitAudioContext));
 
   function speakNow(text) {
     Minglu.setTTS(true);
@@ -460,26 +459,10 @@
   }
 
   function listenOnce(onText, onFail) {
-    if (!VoiceSR) { if (onFail) { onFail("unsupported"); } return; }
-    try { if (activeRec) { activeRec.abort(); } } catch (e) {}
-    var rec = new VoiceSR();
-    activeRec = rec;
-    rec.lang = "zh-CN";
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-    var got = false;
-    rec.onresult = function (ev) {
-      got = true;
-      var t = "";
-      try { t = ev.results[0][0].transcript || ""; } catch (e) {}
-      if (activeRec === rec) { activeRec = null; }
-      onText(String(t).trim());
-    };
-    rec.onerror = function (ev) {
-      if (activeRec === rec) { activeRec = null; }
-      if (!got && onFail) { onFail(ev && ev.error ? ev.error : "error"); }
-    };
-    try { rec.start(); } catch (e) { if (onFail) { onFail("start"); } }
+    startCapture(function (err, text) {
+      if (err) { if (onFail) { onFail(err); } return; }
+      onText(String(text || "").trim());
+    }, 2600);
   }
 
   function wireVoiceControls(f) {
@@ -504,9 +487,9 @@
     var vbtn = $("#voiceFillBtn");
     var note = $("#voiceNote");
     if (!vbtn) { return; }
-    if (!VoiceSR) {
+    if (!VoiceOK) {
       vbtn.style.display = "none";
-      if (note) { note.textContent = "这个浏览器不支持语音输入，可以打字填。"; }
+      if (note) { note.textContent = "这个浏览器不能录音，可以打字填。"; }
       return;
     }
     if (window.isSecureContext && note) { note.textContent = "点一下开始说话，再点一下结束。AI 会从你说的话里提取这一项要填的内容。"; }
@@ -520,9 +503,93 @@
     });
   }
 
-  var toggleRec = null;
-  var toggleText = "";
-  var toggleErr = "";
+  /* 录音引擎：浏览器只负责录音（WebAudio 采 PCM、转 16k WAV），
+     识别在自家服务器完成（/api/asr），不依赖浏览器厂商的识别服务。 */
+  var capBusy = false;
+  var capDone = null;
+  var capStream = null;
+  var capCtx = null;
+  var capProc = null;
+  var capChunks = null;
+  var capTimer = null;
+
+  function startCapture(done, autoStopMs) {
+    if (capBusy) { done("busy"); return; }
+    if (!VoiceOK) { done("unsupported"); return; }
+    capBusy = true;
+    capDone = done;
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      capStream = stream;
+      var AC = window.AudioContext || window.webkitAudioContext;
+      capCtx = new AC();
+      var src = capCtx.createMediaStreamSource(stream);
+      capProc = capCtx.createScriptProcessor(4096, 1, 1);
+      capChunks = [];
+      capProc.onaudioprocess = function (e) {
+        capChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+      };
+      src.connect(capProc);
+      capProc.connect(capCtx.destination);
+      if (autoStopMs) { capTimer = setTimeout(function () { stopCapture(); }, autoStopMs); }
+    }).catch(function () {
+      capBusy = false;
+      capDone = null;
+      done("not-allowed");
+    });
+  }
+
+  function stopCapture() {
+    if (!capBusy) { return; }
+    var done = capDone;
+    capDone = null;
+    if (capTimer) { clearTimeout(capTimer); capTimer = null; }
+    var rate = capCtx ? capCtx.sampleRate : 44100;
+    var chunks = capChunks || [];
+    try { if (capProc) { capProc.disconnect(); } } catch (e) {}
+    if (capStream) { capStream.getTracks().forEach(function (t) { t.stop(); }); }
+    try { if (capCtx) { capCtx.close(); } } catch (e) {}
+    capProc = null; capStream = null; capCtx = null; capChunks = null;
+    var wav = encodeWav16k(chunks, rate);
+    capBusy = false;
+    if (!wav) { if (done) { done("error"); } return; }
+    MingluAI.asr(wav).then(function (r) {
+      if (done) { done(null, r.text || ""); }
+    }).catch(function () {
+      if (done) { done("network"); }
+    });
+  }
+
+  function encodeWav16k(chunks, srcRate) {
+    var total = 0, i;
+    for (i = 0; i < chunks.length; i++) { total += chunks[i].length; }
+    if (!total) { return ""; }
+    var merged = new Float32Array(total);
+    var off = 0;
+    for (i = 0; i < chunks.length; i++) { merged.set(chunks[i], off); off += chunks[i].length; }
+    var ratio = srcRate / 16000;
+    var outLen = Math.floor(total / ratio);
+    var buf = new ArrayBuffer(44 + outLen * 2);
+    var dv = new DataView(buf);
+    function ws(o, s) { for (var k = 0; k < s.length; k++) { dv.setUint8(o + k, s.charCodeAt(k)); } }
+    ws(0, "RIFF"); dv.setUint32(4, 36 + outLen * 2, true); ws(8, "WAVE"); ws(12, "fmt ");
+    dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+    dv.setUint32(24, 16000, true); dv.setUint32(28, 32000, true); dv.setUint16(32, 2, true);
+    dv.setUint16(34, 16, true); ws(36, "data"); dv.setUint32(40, outLen * 2, true);
+    for (i = 0; i < outLen; i++) {
+      var v = merged[Math.floor(i * ratio)] || 0;
+      v = Math.max(-1, Math.min(1, v));
+      dv.setInt16(44 + i * 2, v < 0 ? v * 0x8000 : v * 0x7FFF, true);
+    }
+    var bytes = new Uint8Array(buf);
+    var bin = "";
+    var CH = 8192;
+    for (i = 0; i < bytes.length; i += CH) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+    }
+    return btoa(bin);
+  }
+
+  var capOn = false;
 
   function setVoiceBtn(recording) {
     var vbtn = $("#voiceFillBtn");
@@ -531,53 +598,39 @@
     else { vbtn.classList.remove("recording"); vbtn.textContent = "🎤 点一下说话"; }
   }
 
+  function voiceErrText(err) {
+    if (err === "not-allowed") { return "麦克风没有被允许。请点浏览器地址栏旁边的麦克风图标，允许这个网站使用麦克风，再试一次。"; }
+    if (err === "unsupported") { return "这个浏览器不能录音，可以打字填。"; }
+    if (err === "busy") { return "正在识别上一句，请稍等一下。"; }
+    if (err === "network") { return "识别服务暂时连不上，可以打字填，或再点一下试一次。"; }
+    return "刚才没识别成功，点一下再试一次。";
+  }
+
   function toggleVoice(f) {
-    if (toggleRec) { try { toggleRec.stop(); } catch (e) {} return; }
+    if (capOn) {
+      capOn = false;
+      setVoiceBtn(false);
+      var n0 = $("#voiceNote");
+      if (n0) { n0.textContent = "正在识别你说的话…"; }
+      stopCapture();
+      return;
+    }
     var note = $("#voiceNote");
     var card = $("#voiceCard");
     if (card) { card.innerHTML = ""; }
     if (window.speechSynthesis) { try { speechSynthesis.cancel(); } catch (e) {} }
-    try { if (activeRec) { activeRec.abort(); } } catch (e) {}
-    toggleText = "";
-    toggleErr = "";
-    var rec = new VoiceSR();
-    toggleRec = rec;
-    rec.lang = "zh-CN";
-    rec.continuous = true;
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-    rec.onresult = function (ev) {
-      for (var i = ev.resultIndex; i < ev.results.length; i++) {
-        if (ev.results[i].isFinal) {
-          try { toggleText += ev.results[i][0].transcript || ""; } catch (e) {}
-        }
-      }
-    };
-    rec.onerror = function (ev) { toggleErr = (ev && ev.error) || "error"; };
-    rec.onend = function () {
-      if (toggleRec === rec) { toggleRec = null; }
-      setVoiceBtn(false);
-      var text = String(toggleText).trim();
-      if (text) { processTranscript(f, text); return; }
-      var n = $("#voiceNote");
-      if (!n) { return; }
-      if (toggleErr === "not-allowed" || toggleErr === "service-not-allowed") {
-        n.textContent = "麦克风没有被允许。请点浏览器地址栏旁边的麦克风图标，允许这个网站使用麦克风，再试一次。";
-      } else if (toggleErr === "network") {
-        n.textContent = "语音识别服务连不上网络（识别需要联网），可以先打字填。";
-      } else if (toggleErr && toggleErr !== "aborted" && toggleErr !== "no-speech") {
-        n.textContent = "刚才没识别成功，点一下再试一次。";
-      } else {
-        n.textContent = "没有听到声音，点一下再说一次。";
-      }
-    };
+    capOn = true;
     setVoiceBtn(true);
     if (note) { note.textContent = "正在听…说完再点一下按钮结束。"; }
-    try { rec.start(); } catch (e) {
-      toggleRec = null;
+    startCapture(function (err, text) {
+      capOn = false;
       setVoiceBtn(false);
-      if (note) { note.textContent = "麦克风没打开，点一下再试一次。"; }
-    }
+      var n = $("#voiceNote");
+      if (err) { if (n) { n.textContent = voiceErrText(err); } return; }
+      if (!text || !String(text).trim()) { if (n) { n.textContent = "没有听清，点一下再说一次。"; } return; }
+      if (n) { n.textContent = ""; }
+      processTranscript(f, String(text).trim());
+    }, 45000);
   }
 
   function processTranscript(f, text) {
