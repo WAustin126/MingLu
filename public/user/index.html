@@ -36,6 +36,8 @@
     .opt-speak { float: right; border: 1px solid #b9cdc9; background: #fff; border-radius: 999px; padding: 2px 10px; font-size: .95rem; cursor: pointer; line-height: 1.5; }
     .voice-row { margin-top: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .voice-note { font-size: .9rem; color: #57606a; }
+    #voiceFillBtn { touch-action: none; user-select: none; -webkit-user-select: none; }
+    #voiceFillBtn.recording { background: #b3261e; border-color: #b3261e; color: #fff; }
     .voice-card { margin-top: 16px; border: 2px solid #0E5C6B; border-radius: 14px; padding: 16px; background: #f2faf8; }
     .voice-card-title { margin: 0 0 4px; font-size: .95rem; color: #3D4A52; }
     .voice-card-value { margin: 0 0 10px; font-size: 1.5rem; font-weight: 700; color: #1A2228; word-break: break-all; }
@@ -428,7 +430,7 @@
       });
       html += "</div>";
     }
-    html += '<div class="voice-row"><button type="button" class="btn secondary" id="voiceFillBtn">🎤 说着填</button>' +
+    html += '<div class="voice-row"><button type="button" class="btn secondary" id="voiceFillBtn">🎤 按住说话</button>' +
       '<span class="voice-note" id="voiceNote" role="status"></span></div><div id="voiceCard"></div>';
     stage.innerHTML = html;
 
@@ -507,38 +509,100 @@
       if (note) { note.textContent = "这个浏览器不支持语音输入，可以打字填。"; }
       return;
     }
-    vbtn.addEventListener("click", function () {
+    if (window.isSecureContext && note) { note.textContent = "按住按钮说话，说完松开，就自动整理成能填的格式。"; }
+    var pressing = false;
+    function pressStart(e) {
+      if (e) { e.preventDefault(); }
+      if (pressing) { return; }
       if (!window.isSecureContext) {
         if (note) { note.textContent = "语音填表需要 HTTPS 安全页面，这个公网地址暂时用不了；可以先打字填。"; }
         speakNow("语音填表需要 HTTPS 安全页面，这个地址暂时用不了。可以先打字填。");
         return;
       }
-      startVoiceFill(f);
+      pressing = true;
+      beginHold(f);
+    }
+    function pressEnd(e) {
+      if (e) { e.preventDefault(); }
+      if (!pressing) { return; }
+      pressing = false;
+      endHold();
+    }
+    vbtn.addEventListener("pointerdown", pressStart);
+    vbtn.addEventListener("pointerup", pressEnd);
+    vbtn.addEventListener("pointercancel", pressEnd);
+    vbtn.addEventListener("pointerleave", pressEnd);
+    vbtn.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+    vbtn.addEventListener("keydown", function (e) {
+      if ((e.key === " " || e.key === "Enter") && !e.repeat) { pressStart(e); }
     });
+    vbtn.addEventListener("keyup", function (e) {
+      if (e.key === " " || e.key === "Enter") { pressEnd(e); }
+    });
+    vbtn.addEventListener("click", function (e) { e.preventDefault(); });
   }
 
-  function startVoiceFill(f) {
+  var holdRec = null;
+  var holdStopWanted = false;
+  var holdHandled = false;
+
+  function beginHold(f) {
     var note = $("#voiceNote");
     var card = $("#voiceCard");
+    var vbtn = $("#voiceFillBtn");
     if (card) { card.innerHTML = ""; }
-    if (note) { note.textContent = "请说出这一项要填的内容……"; }
-    speakNow(f.label + "。请说出要填的内容。");
-    setTimeout(function () {
-      listenOnce(function (text) {
-        if (!text) { if (note) { note.textContent = "没有听清，请再点一次「说着填」。"; } return; }
-        if (note) { note.textContent = "听到了，正在整理成能填的格式……"; }
-        MingluAI.voiceFill(f, text).then(function (r) {
-          if (note) { note.textContent = ""; }
-          showVoiceCard(f, r);
-        }).catch(function (err) {
-          if (window.console && err && err.message) { console.warn("[明路] 语音规整失败：", err.message); }
-          if (note) { note.textContent = "AI 整理失败，可以打字填，或再试一次。"; }
-          speakNow("整理失败了。可以打字填，或者再试一次。");
-        });
-      }, function () {
-        if (note) { note.textContent = "没有听到声音，请再点一次「说着填」。"; }
-      });
-    }, 900);
+    if (window.speechSynthesis) { try { speechSynthesis.cancel(); } catch (e) {} }
+    holdHandled = false;
+    holdStopWanted = false;
+    try { if (activeRec) { activeRec.abort(); } } catch (e) {}
+    var rec = new VoiceSR();
+    holdRec = rec;
+    rec.lang = "zh-CN";
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    rec.onresult = function (ev) {
+      holdHandled = true;
+      var t = "";
+      try { t = ev.results[0][0].transcript || ""; } catch (e) {}
+      processTranscript(f, String(t).trim());
+    };
+    rec.onerror = function () {
+      if (!holdHandled) {
+        holdHandled = true;
+        if (note) { note.textContent = "没有听到声音，再按住说一次。"; }
+      }
+    };
+    rec.onend = function () {
+      if (holdRec === rec) { holdRec = null; }
+      if (vbtn) { vbtn.classList.remove("recording"); vbtn.textContent = "🎤 按住说话"; }
+    };
+    if (vbtn) { vbtn.classList.add("recording"); vbtn.textContent = "🔴 正在听，松开结束"; }
+    if (note) { note.textContent = "正在听…说完松开按钮。"; }
+    try {
+      rec.start();
+      if (holdStopWanted) { rec.stop(); }
+    } catch (e) {
+      if (note) { note.textContent = "麦克风没打开，再按住试一次。"; }
+    }
+  }
+
+  function endHold() {
+    holdStopWanted = true;
+    if (holdRec) { try { holdRec.stop(); } catch (e) {} }
+  }
+
+  function processTranscript(f, text) {
+    var note = $("#voiceNote");
+    if (!text) { if (note) { note.textContent = "没有听清，再按住说一次。"; } return; }
+    if (note) { note.textContent = "听到了，正在整理成能填的格式……"; }
+    MingluAI.voiceFill(f, text).then(function (r) {
+      if (note) { note.textContent = ""; }
+      showVoiceCard(f, r);
+    }).catch(function (err) {
+      if (window.console && err && err.message) { console.warn("[明路] 语音规整失败：", err.message); }
+      if (note) { note.textContent = "AI 整理失败，可以打字填，或再按住说一次。"; }
+      speakNow("整理失败了。可以打字填，或者再说一次。");
+    });
   }
 
   function maskForCard(v) {
@@ -577,13 +641,13 @@
       '<p class="voice-card-hint">也可以直接说「对」确认、说「重说」再说一次。</p></div>';
     speakNow((r.readback || ("将要填写的是：" + shown + "。")) + "对吗？");
     $("#vfOk").addEventListener("click", function () { applyVoiceValue(f, r.value); });
-    $("#vfRetry").addEventListener("click", function () { card.innerHTML = ""; startVoiceFill(f); });
+    $("#vfRetry").addEventListener("click", function () { card.innerHTML = ""; var n = $("#voiceNote"); if (n) { n.textContent = "再按住下面的「按住说话」，说一次。"; } });
     $("#vfCancel").addEventListener("click", function () { card.innerHTML = ""; speakNow("已取消，没有填入。"); });
     setTimeout(function () {
       listenOnce(function (t) {
         if (!document.getElementById("vfOk")) { return; }
         if (/^(对|对的|确认|好|好的|是|是的|可以|没错|就这个)[。！!]?$/.test(t)) { applyVoiceValue(f, r.value); }
-        else if (/重说|再说|不对|不是/.test(t)) { card.innerHTML = ""; startVoiceFill(f); }
+        else if (/重说|再说|不对|不是/.test(t)) { card.innerHTML = ""; var n2 = $("#voiceNote"); if (n2) { n2.textContent = "再按住下面的「按住说话」，说一次。"; } }
         else if (/取消|不用了|算了/.test(t)) { card.innerHTML = ""; speakNow("已取消，没有填入。"); }
       }, function () { /* 没听清就不动作，等按钮 */ });
     }, 1500);
