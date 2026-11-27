@@ -59,7 +59,7 @@
     <li data-step="1" class="active"><span class="no">1</span>读表清单</li>
     <li data-step="2"><span class="no">2</span>逐项填写</li>
     <li data-step="3"><span class="no">3</span>当场校验</li>
-    <li data-step="4"><span class="no">4</span>整表查错</li>
+    <li data-step="4"><span class="no">4</span>提交前核对</li>
     <li data-step="5"><span class="no">5</span>核对提交</li>
   </ol>
 
@@ -71,7 +71,7 @@
 
       <div class="source-bar">
         <span class="source-chip" id="sourceChip">正在读取表单…</span>
-        <button type="button" class="btn secondary" id="openImport" style="min-height:44px;padding:9px 16px;font-size:.85rem">导入我自己的表格</button>
+        <button type="button" class="btn secondary" id="openImport" style="min-height:44px;padding:9px 16px;font-size:.85rem">打开一张表</button>
         <button type="button" class="btn ghost" id="useSample" style="min-height:44px;padding:9px 16px;font-size:.85rem">改用示例表</button>
       </div>
 
@@ -109,11 +109,11 @@
 
     <!-- ============ 步骤 4：整表查错 ============ -->
     <section class="step-panel" id="panel-4" hidden aria-labelledby="title-4">
-      <h1 class="step-title" id="title-4" tabindex="-1">第 4 步：检查整张表</h1>
-      <p class="step-desc">点下面的按钮，把整张表再查一遍。查出的问题可以直接跳回去改。</p>
+      <h1 class="step-title" id="title-4" tabindex="-1">第 4 步：提交前核对</h1>
+      <p class="step-desc">点下面的按钮，把你填的内容整体核对一遍：有没有漏填、填错。发现问题可以直接跳回去改。（这里核对的是你填的内容，不是表本身的问题。）</p>
 
       <div class="btn-row" style="margin-top:0">
-        <button type="button" class="btn" id="doCheck">检查整张表</button>
+        <button type="button" class="btn" id="doCheck">开始核对</button>
       </div>
       <div id="checkResult" aria-live="polite"></div>
 
@@ -150,7 +150,7 @@
 
 <!-- ============ 导入表格对话框 ============ -->
 <dialog class="import-dlg" id="importDialog" aria-labelledby="importTitle">
-  <h2 id="importTitle">导入我自己的表格</h2>
+  <h2 id="importTitle">打开一张表</h2>
   <p class="step-desc" style="margin-bottom:0">四种方式任选：上传网页表格文件、粘贴网页源码、粘贴表格文字，或上传表单照片（后两种可让 AI 帮你整理）。</p>
 
   <div class="dlg-tabs" role="tablist">
@@ -181,7 +181,7 @@
   <div id="importMsg" aria-live="polite"></div>
 
   <div class="btn-row">
-    <button type="button" class="btn" id="doImport">开始导入</button>
+    <button type="button" class="btn" id="doImport">打开这张表</button>
     <button type="button" class="btn ghost" id="cancelImport">取消</button>
   </div>
 </dialog>
@@ -300,13 +300,11 @@
 
     var chip = $("#sourceChip");
     var labelMap = {
-      published: "来源：机构发布",
-      imported: "来源：我自己导入",
-      "default": "来源：示例表单"
+      published: "机构已修复 · 这是机构检查修复后发布的表，填起来最稳",
+      imported: "未修复版 · 我自己导入的表（临时整理，没经过机构检查修复）",
+      "default": "示例表单"
     };
-    var extra = source === "published" ? "（机构侧修复并发布）"
-      : source === "imported" ? "（本地解析 / AI 整理）" : "";
-    chip.textContent = (labelMap[source] || "来源：示例表") + extra;
+    chip.textContent = labelMap[source] || "示例表单";
 
     renderOverview(schema);
     $("#startFill").disabled = false;
