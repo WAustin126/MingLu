@@ -408,7 +408,7 @@
 
     var val = state.answers[f.key];
 
-    if (f.type === "text" || f.type === "email" || f.type === "number") {
+    if (f.type === "text" || f.type === "email" || f.type === "number" || f.type === "tel" || f.type === "date") {
       html += '<input type="' + f.type + '" id="answer" aria-labelledby="flabel"' +
         (f.placeholder ? ' placeholder="' + Minglu.escapeHtml(f.placeholder) + '"' : "") +
         (f.type === "number" ? ' min="' + f.min + '" max="' + f.max + '" step="' + (f.step || 1) + '"' : "") +
@@ -440,6 +440,11 @@
           ' <button type="button" class="opt-speak" data-opt-label="' + Minglu.escapeHtml(o.label) + '" aria-label="朗读选项：' + Minglu.escapeHtml(o.label) + '">🔊</button></label>';
       });
       html += "</div>";
+    } else {
+      // 兜底：不认识的类型一律给文本框，绝不出现「没有输入框、填不进去」
+      html += '<input type="text" id="answer" aria-labelledby="flabel"' +
+        (f.placeholder ? ' placeholder="' + Minglu.escapeHtml(f.placeholder) + '"' : "") +
+        ' value="' + Minglu.escapeHtml(val != null ? val : "") + '">';
     }
     html += '<div class="voice-row"><button type="button" class="btn secondary" id="voiceFillBtn">🎤 点一下说话</button>' +
       '<span class="voice-note" id="voiceNote" role="status"></span></div><div id="voiceCard"></div>';
@@ -892,7 +897,7 @@
            : "<span class='v empty'>（未填写）</span>") + "</li>";
     });
     $("#reviewList").innerHTML = html;
-    var btnLabel = (state.schema && state.schema.form.submit.button_label) || "提交";
+    var btnLabel = (state.schema && state.schema.form.submit && state.schema.form.submit.button_label) || "提交";
     $("#finalSubmit").textContent = btnLabel;
     Minglu.speak("请最后核对。确认无误后，由你自己点「" + btnLabel + "」。明路不会替你提交。");
   }
@@ -905,7 +910,7 @@
       Minglu.speak("还有 " + problems.length + " 处未通过，请返回修改。");
       return;
     }
-    var wording = (state.schema && state.schema.form.submit.result_wording) || "填写任务完成";
+    var wording = (state.schema && state.schema.form.submit && state.schema.form.submit.result_wording) || "填写任务完成";
     var nameField = state.fields.filter(function (f) { return f.type === "text"; })[0];
     var who = nameField ? answerText(nameField) : "";
     $("#submitStatus").innerHTML =
