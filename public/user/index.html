@@ -306,11 +306,20 @@
   });
 
   /* ---------- 载入表单：机构发布 > 自己导入 > 示例 ---------- */
+  /* 盖章、签字、审核意见这类是工作人员办的，不用填表人填：识别出来，填写时自动跳过 */
+  var STAFF_ONLY_RE = /盖章|签章|公章|签字|签名|审核|审批|审查|核查|经办人|承办人|复核人|评估机构|评估人|意见$/;
+  function isStaffOnly(f) {
+    var lab = (f && f.label) || "";
+    return STAFF_ONLY_RE.test(lab);
+  }
   function applySchema(schema, source) {
     var pa = $("#pickerArea");
     if (pa) { pa.hidden = true; }
     state.schema = schema;
-    state.fields = schema.fields || [];
+    var allFields = schema.fields || [];
+    state.staffFields = allFields.filter(isStaffOnly);
+    state.fields = allFields.filter(function (f) { return !isStaffOnly(f); });
+    if (!state.fields.length) { state.fields = allFields; state.staffFields = []; }
     state.answers = {};
     state.idx = 0;
     state.source = source;
@@ -428,14 +437,19 @@
       '<div class="alert alert-info">' + Minglu.escapeHtml(schema.form.privacy || "") + "</div>";
     MingluExtract.bindRead($("#overviewArea"), ex);
 
-    var html = '<div class="card"><h2 style="font-size:1.05em;margin-top:0">字段清单</h2><ul class="review-list">';
-    fields.forEach(function (f) {
+    var html = '<div class="card"><h2 style="font-size:1.05em;margin-top:0">字段清单（要您填的）</h2><ul class="review-list">';
+    (state.fields || fields).forEach(function (f) {
       var uncertain = f.uncertain ? ' <span class="sev sev-moderate">待确认</span>' : "";
       html += "<li><span class='k'>" + Minglu.escapeHtml(f.label) +
         (f.required ? " <span class='req-star' aria-label='必填'>*</span>" : "") + uncertain +
         "</span><span class='v'>" + Minglu.escapeHtml(f.help || f.screen_reader_hint || "") + "</span></li>";
     });
     html += "</ul></div>";
+    if (state.staffFields && state.staffFields.length) {
+      var names = state.staffFields.map(function (f) { return Minglu.escapeHtml(f.label); }).join("、");
+      html += '<div class="alert alert-info">这张表还有 ' + state.staffFields.length +
+        ' 处不用您填：' + names + '。这些是工作人员盖章、签字、写意见的地方，填写时会自动跳过，您不用管。</div>';
+    }
     $("#fieldList").innerHTML = html;
   }
 
