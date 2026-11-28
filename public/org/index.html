@@ -112,11 +112,11 @@
         <thead><tr><th>表单</th><th>来源</th><th>状态</th></tr></thead>
         <tbody>
           <tr><td id="benchLibDemo">演示表单</td><td>内置示例（data/form.schema.json）</td><td id="benchLibDemoState">已完成诊断</td></tr>
-          <tr><td id="benchLibPub">已发布到个人端的版本</td><td>本浏览器发布记录</td><td id="benchLibPubState">尚未发布</td></tr>
+          <tr><td id="benchLibPub">已发布到个人端的版本</td><td>服务器发布记录</td><td id="benchLibPubState">尚未发布</td></tr>
           <tr><td id="benchLibImp">个人端导入的表单</td><td>个人端「打开一张表」</td><td id="benchLibImpState">暂无</td></tr>
         </tbody>
       </table>
-      <p class="foot-note">发布与导入记录保存在当前浏览器里；换浏览器或换电脑，需要重新发布一次。</p>
+      <p class="foot-note">发布保存在服务器上：任何浏览器、任何设备打开个人端，读到的都是最新发布的表；个人端导入的表仍只存在当前浏览器里。</p>
     </section>
 
     <!-- ================= 第 1 步：导入 ================= -->
@@ -1032,11 +1032,17 @@
 
     getSchema.then(function (schema) {
       MingluImport.publish(schema);
-      if (typeof renderBench === "function") { renderBench(); }
       MingluImport.clearImported();
       var n = (schema.fields || []).length;
-      $("#publishStatus").innerHTML = '<div class="alert alert-ok">已发布到个人端：' + n +
-        " 项字段。个人端打开即读取这份表。 <a href=\"../user/index.html\">去个人端验证 →</a></div>";
+      return MingluImport.publishToServer(schema).then(function () {
+        if (typeof renderBench === "function") { renderBench(); }
+        $("#publishStatus").innerHTML = '<div class="alert alert-ok">已发布到个人端（服务器）：' + n +
+          " 项字段。任何浏览器、任何设备打开个人端，读到的都是这份表。 <a href=\"../user/index.html\">去个人端验证 →</a></div>";
+      }).catch(function () {
+        if (typeof renderBench === "function") { renderBench(); }
+        $("#publishStatus").innerHTML = '<div class="alert alert-ok">已发布到本浏览器的个人端：' + n +
+          " 项字段。服务器发布失败，其他浏览器暂时看不到，请检查网络后重新发布。</div>";
+      });
     }).catch(function (e) {
       $("#publishStatus").innerHTML = '<div class="alert alert-err">发布失败：' +
         esc((e && e.message) || "读不到表单结构") + "</div>";
@@ -1070,14 +1076,20 @@
     var pub = null, imp = null;
     try { pub = MingluImport.getPublished(); } catch (e) {}
     try { imp = MingluImport.getImported(); } catch (e) {}
-    if (pub && pub.schema) {
-      var pt = (pub.schema.form && pub.schema.form.title) || pub.schema.title || "已发布表单";
-      var pf = (pub.schema.fields || []).length;
-      var when = pub.at ? new Date(pub.at).toLocaleString("zh-CN", { hour12: false }) : "";
+    function paintPub(p, server) {
+      var pt = (p.schema.form && p.schema.form.title) || p.schema.title || "已发布表单";
+      var pf = (p.schema.fields || []).length;
+      var when = p.at ? new Date(p.at).toLocaleString("zh-CN", { hour12: false }) : "";
       benchSet("#benchLibPub", "《" + pt + "》（" + pf + " 项）");
-      benchSet("#benchLibPubState", "已发布" + (when ? " · " + when : ""));
-      benchSet("#benchS4", "已发布《" + pt + "》到个人端，填表人打开即是这张表。");
+      benchSet("#benchLibPubState", (server ? "已发布（服务器）" : "已发布") + (when ? " · " + when : ""));
+      benchSet("#benchS4", server
+        ? "已发布《" + pt + "》到个人端（服务器），任何浏览器打开都是这张表。"
+        : "已发布《" + pt + "》到个人端，填表人打开即是这张表。");
     }
+    MingluImport.getServerPublished().then(function (sp) {
+      if (sp && sp.schema) { paintPub(sp, true); return; }
+      if (pub && pub.schema) { paintPub(pub, false); }
+    });
     if (imp && imp.schema) {
       var it = (imp.schema.form && imp.schema.form.title) || imp.schema.title || "导入的表单";
       benchSet("#benchLibImp", "《" + it + "》（" + (imp.schema.fields || []).length + " 项）");

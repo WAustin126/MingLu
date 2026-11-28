@@ -51,6 +51,7 @@ const UPSTREAM = BASE_URL + '/chat/completions';
 const UPSTREAM_TIMEOUT_MS = 25000;
 const MAX_BODY = 16 * 1024;
 const ASR_MAX_BODY = 3 * 1024 * 1024;
+const PUBLISH_MAX_BODY = 512 * 1024;
 const ASR_MODEL = process.env.MINGLU_ASR_MODEL || 'qwen-audio-turbo';
 const ASR_URL = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
 
@@ -238,6 +239,25 @@ const VOICE_FILL_PROMPT = `你是表单语音填写的提取助手。你的工�
 
 只输出一个 JSON 对象，不要输出任何其他文字，格式：{"value": ..., "readback": "...", "certain": true}
 readback 是给用户听的确认句，格式固定为「将要填写的是：X。对吗？」，其中 X 用适合朗读的说法（邮箱把 @ 读作「艾特」、点读作「点」，日期读成年、月、日，选项读选项文字本身）。`;
+
+async function handlePublish(req, res) {
+  const ctype = String(req.headers['content-type'] || '');
+  if (!ctype.toLowerCase().includes('application/json')) {
+    return json(res, 415, { error: 'Content-Type 必须是 application/json。' });
+  }
+  const read = await readJsonBody(req, PUBLISH_MAX_BODY);
+  if (read.error) return json(res, read.code || 400, { error: read.error });
+  const schema = read.value && read.value.schema;
+  if (!schema || !schema.form || !Array.isArray(schema.fields) || schema.fields.length === 0) {
+    return json(res, 400, { error: 'schema 不合法：需要 form 和非空的 fields 数组。' });
+  }
+  const payload = { schema: schema, at: new Date().toISOString(), from: '机构侧工作台（服务器发布）' };
+  const target = path.join(PUBLIC_DIR, 'data', 'published.schema.json');
+  fs.writeFileSync(target + '.tmp', JSON.stringify(payload, null, 2));
+  fs.renameSync(target + '.tmp', target);
+  console.log('[publish] 已发布到服务器：' + String(schema.form.title || '') + '，' + schema.fields.length + ' 项');
+  return json(res, 200, { ok: true, fields: schema.fields.length, at: payload.at });
+}
 
 async function handleExplain(req, res) {
   if (!API_KEY) {
@@ -917,6 +937,15 @@ const server = http.createServer((req, res) => {
     handleExplain(req, res).catch((e) => {
       console.error('[explain] handler error ' + (e && e.name));
       if (!res.headersSent) json(res, 500, { error: '服务端内部错误，本次没有调用模型。' });
+    });
+    return;
+  }
+
+  if (pathname === '/api/publish') {
+    if (method !== 'POST') return json(res, 405, { error: 'method not allowed' });
+    handlePublish(req, res).catch((e) => {
+      console.error('[publish] handler error ' + (e && e.name));
+      if (!res.headersSent) json(res, 500, { error: '服务端内部错误，本次发布没有保存。' });
     });
     return;
   }

@@ -336,15 +336,26 @@
     function usable(x) {
       return !!(x && x.schema && x.schema.form && Array.isArray(x.schema.fields));
     }
-    try {
-      var published = MingluImport.getPublished();
-      if (usable(published)) { applySchema(published.schema, "published"); return; }
-    } catch (e) { /* stored published data broken: fall back */ }
-    try {
-      var imported = MingluImport.getImported();
-      if (usable(imported)) { applySchema(imported.schema, "imported"); return; }
-    } catch (e) { /* stored imported data broken: fall back */ }
-    loadDefaultSchema();
+    function localFallback() {
+      try {
+        var published = MingluImport.getPublished();
+        if (usable(published)) { applySchema(published.schema, "published"); return; }
+      } catch (e) { /* stored published data broken: fall back */ }
+      try {
+        var imported = MingluImport.getImported();
+        if (usable(imported)) { applySchema(imported.schema, "imported"); return; }
+      } catch (e) { /* stored imported data broken: fall back */ }
+      loadDefaultSchema();
+    }
+    /* 服务器发布优先：机构在任何浏览器发布，这里都读得到 */
+    if (MingluImport.getServerPublished) {
+      MingluImport.getServerPublished().then(function (sp) {
+        if (usable(sp)) { applySchema(sp.schema, "published"); return; }
+        localFallback();
+      });
+    } else {
+      localFallback();
+    }
   }
 
   /* ---------- 步骤 1：读表清单 ---------- */

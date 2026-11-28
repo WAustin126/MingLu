@@ -269,6 +269,26 @@
     localStorage.setItem(PUBLISHED_KEY, JSON.stringify(payload));
     return payload;
   };
+  /* 服务器发布：发布存到服务器，任何浏览器打开个人端都读得到（2026-11-28） */
+  Import.publishToServer = function (schema) {
+    return fetch("../api/publish", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ schema: schema })
+    }).then(function (r) {
+      if (!r.ok) { throw new Error("HTTP " + r.status); }
+      return r.json();
+    });
+  };
+  Import.getServerPublished = function () {
+    return fetch("../data/published.schema.json", { cache: "no-store" }).then(function (r) {
+      if (!r.ok) { return null; }
+      return r.json();
+    }).then(function (p) {
+      return (p && p.schema && Array.isArray(p.schema.fields)) ? p : null;
+    }).catch(function () { return null; });
+  };
+
   Import.getPublished = function () {
     try {
       var raw = localStorage.getItem(PUBLISHED_KEY);
