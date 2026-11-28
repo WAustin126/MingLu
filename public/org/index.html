@@ -12,6 +12,16 @@
   .stat3 .n { display:block; font-size:34px; font-weight:800; line-height:1.15; }
   .stat3 .l { display:block; font-size:.92em; color:var(--ink-2); }
   .stat3 .cell.sev .n { color:#8a0000; }
+  .stat4 { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin:18px 0; }
+  .stat4 .cell { border:2px solid var(--line); border-radius:10px; padding:14px 16px; background:#fff; }
+  .stat4 .n { display:block; font-size:34px; font-weight:800; line-height:1.15; }
+  .stat4 .l { display:block; font-size:.92em; color:var(--ink-2); }
+  .bench-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin:14px 0; }
+  .bench-card { border:2px solid var(--line); border-radius:10px; padding:16px 18px; background:#fff; }
+  .bench-card h3 { margin:0 0 6px; font-size:1.05em; }
+  .bench-card p { margin:0 0 12px; color:var(--ink-2); }
+  .stepbar li[data-step="0"] { cursor:pointer; }
+  @media (max-width:760px){ .stat4{grid-template-columns:repeat(2,1fr);} .bench-grid{grid-template-columns:1fr;} }
   .stat3 .cell.pend .n { color:#8a6d1d; }
   .grp { margin:22px 0; }
   .grp > h2 { font-size:1.06em; margin:0 0 4px; }
@@ -55,13 +65,64 @@
   </header>
 
   <ol class="stepbar" id="stepbar" aria-label="流程步骤">
-    <li data-step="1" class="active"><span class="no">1</span>导入表单</li>
+    <li data-step="0"><span class="no">⌂</span>工作台总览</li>
+    <li data-step="1"><span class="no">1</span>导入表单</li>
     <li data-step="2"><span class="no">2</span>检查问题</li>
     <li data-step="3"><span class="no">3</span>一键修好</li>
     <li data-step="4"><span class="no">4</span>完成发布</li>
   </ol>
 
   <main id="main">
+
+    <!-- ================= 工作台总览 ================= -->
+    <section class="step-panel" id="panel-0" aria-labelledby="title-0">
+      <h1 class="step-title" id="title-0" tabindex="-1">工作台总览</h1>
+      <p class="step-desc">机构侧的表单都在这里管：<b>先把表修到无障碍合规，再交付给填表人</b>。下面是当前这张表走完整条流水线的真实状态，点任意一步的按钮就能进去干活。</p>
+
+      <div class="stat4" role="group" aria-label="关键数字">
+        <div class="cell"><span class="n" id="benchFields">—</span><span class="l">当前表单字段（项）</span></div>
+        <div class="cell"><span class="n" id="benchCats">—</span><span class="l">检出问题类别（类）</span></div>
+        <div class="cell"><span class="n" id="benchInst">—</span><span class="l">问题实例（处）</span></div>
+        <div class="cell"><span class="n" id="benchPassed">—</span><span class="l">已通过检查（项）</span></div>
+      </div>
+      <p class="foot-note" id="benchDataNote">数字来自内置演示表单的确定性扫描报告（data/issues.json）；导入真实表单后，在第 1、2 步按同一套规则出报告。</p>
+
+      <h2 style="margin-top:26px">处理流水线</h2>
+      <div class="bench-grid">
+        <div class="bench-card">
+          <h3>1 · 导入表单</h3>
+          <p id="benchS1">示例、文件、拍照、JSON，四种方式把表读成内容清单。</p>
+          <button type="button" class="btn" data-goto="1">进入导入</button>
+        </div>
+        <div class="bench-card">
+          <h3>2 · 检查问题</h3>
+          <p id="benchS2">按无障碍规则逐项检查，问题按拦路、严重、一般分级列出。</p>
+          <button type="button" class="btn" data-goto="2">进入检查</button>
+        </div>
+        <div class="bench-card">
+          <h3>3 · 一键修好</h3>
+          <p id="benchS3">能自动修的一键修；拿不准的先请你拍板，防止把好字段改坏。</p>
+          <button type="button" class="btn" data-goto="3">进入修复</button>
+        </div>
+        <div class="bench-card">
+          <h3>4 · 完成发布</h3>
+          <p id="benchS4">修复版再扫一遍，清零了才发布到个人端。</p>
+          <button type="button" class="btn" data-goto="4">进入发布</button>
+          <a class="btn secondary" href="../user/index.html" style="margin-left:8px">打开个人端</a>
+        </div>
+      </div>
+
+      <h2 style="margin-top:26px">表单库</h2>
+      <table class="data-table" style="width:100%">
+        <thead><tr><th>表单</th><th>来源</th><th>状态</th></tr></thead>
+        <tbody>
+          <tr><td id="benchLibDemo">演示表单</td><td>内置示例（data/form.schema.json）</td><td id="benchLibDemoState">已完成诊断</td></tr>
+          <tr><td id="benchLibPub">已发布到个人端的版本</td><td>本浏览器发布记录</td><td id="benchLibPubState">尚未发布</td></tr>
+          <tr><td id="benchLibImp">个人端导入的表单</td><td>个人端「打开一张表」</td><td id="benchLibImpState">暂无</td></tr>
+        </tbody>
+      </table>
+      <p class="foot-note">发布与导入记录保存在当前浏览器里；换浏览器或换电脑，需要重新发布一次。</p>
+    </section>
 
     <!-- ================= 第 1 步：导入 ================= -->
     <section class="step-panel" id="panel-1" aria-labelledby="title-1">
@@ -318,13 +379,14 @@
 
   /* ---------- 步骤切换与门禁 ---------- */
   function goStep(n) {
-    [1, 2, 3, 4].forEach(function (i) {
+    [0, 1, 2, 3, 4].forEach(function (i) {
       $("#panel-" + i).hidden = (i !== n);
       var li = document.querySelector('.stepbar li[data-step="' + i + '"]');
       li.classList.toggle("active", i === n);
-      li.classList.toggle("done", i < n);
+      li.classList.toggle("done", i > 0 && i < n);
     });
     $("#title-" + n).focus();
+    if (n === 0 && typeof renderBench === "function") { renderBench(); }
     window.scrollTo(0, 0);
   }
 
@@ -992,8 +1054,62 @@
 
   $("#backTo3").addEventListener("click", function () { goStep(3); });
 
+  /* ---------- 工作台总览 ---------- */
+  function benchSet(id, text) { var el = $(id); if (el) { el.textContent = text; } }
+  function renderBench() {
+    Minglu.fetchJSON("../data/form.schema.json").then(function (sch) {
+      var n = (sch.fields || []).length;
+      benchSet("#benchFields", String(n));
+      benchSet("#benchLibDemo", "《" + ((sch.form && sch.form.title) || "演示表单") + "》（" + n + " 项）");
+    }).catch(function () {});
+    Minglu.fetchJSON("../data/issues.json").then(function (rep) {
+      var sm = rep.summary || {};
+      benchSet("#benchCats", String(sm.total != null ? sm.total : "—"));
+      benchSet("#benchInst", String(sm.total_instances != null ? sm.total_instances : "—"));
+      benchSet("#benchPassed", String(sm.passed != null ? sm.passed : "—"));
+      benchSet("#benchS2", "示例报告已检出 " + sm.total + " 类 / " + sm.total_instances + " 处：拦路 " + sm.blocker + " 类、严重 " + sm.serious + " 类、一般 " + sm.moderate + " 类。");
+      benchSet("#benchLibDemoState", "已完成诊断：" + sm.total + " 类 / " + sm.total_instances + " 处");
+    }).catch(function () {});
+    if (state.schemaSource) {
+      benchSet("#benchS1", "当前已载入表单（来源：" + state.schemaSource + "），可直接去检查。");
+    }
+    if (state.fixedDone) {
+      benchSet("#benchS3", "修复版已生成，可去复检发布。");
+    }
+    var pub = null, imp = null;
+    try { pub = MingluImport.getPublished(); } catch (e) {}
+    try { imp = MingluImport.getImported(); } catch (e) {}
+    if (pub && pub.schema) {
+      var pt = (pub.schema.form && pub.schema.form.title) || pub.schema.title || "已发布表单";
+      var pf = (pub.schema.fields || []).length;
+      var when = pub.at ? new Date(pub.at).toLocaleString("zh-CN", { hour12: false }) : "";
+      benchSet("#benchLibPub", "《" + pt + "》（" + pf + " 项）");
+      benchSet("#benchLibPubState", "已发布" + (when ? " · " + when : ""));
+      benchSet("#benchS4", "已发布《" + pt + "》到个人端，填表人打开即是这张表。");
+    }
+    if (imp && imp.schema) {
+      var it = (imp.schema.form && imp.schema.form.title) || imp.schema.title || "导入的表单";
+      benchSet("#benchLibImp", "《" + it + "》（" + (imp.schema.fields || []).length + " 项）");
+      benchSet("#benchLibImpState", "已在个人端打开");
+    }
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("[data-goto]"), function (b) {
+    b.addEventListener("click", function () {
+      var n = parseInt(b.getAttribute("data-goto"), 10);
+      if (n === 2) { advanceToCheck(); return; }
+      if (n === 3) {
+        if (!state.report) { loadReport().then(function () { renderFixScope(); goStep(3); }); }
+        else { renderFixScope(); goStep(3); }
+        return;
+      }
+      goStep(n);
+    });
+  });
+  var benchLi = document.querySelector('.stepbar li[data-step="0"]');
+  if (benchLi) { benchLi.addEventListener("click", function () { goStep(0); }); }
+
   /* ---------- 启动 ---------- */
-  goStep(1);
+  goStep(0);
   refreshGates();
 })();
 </script>

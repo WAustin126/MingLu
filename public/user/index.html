@@ -531,10 +531,10 @@
       src.connect(capProc);
       capProc.connect(capCtx.destination);
       if (autoStopMs) { capTimer = setTimeout(function () { stopCapture(); }, autoStopMs); }
-    }).catch(function () {
+    }).catch(function (e) {
       capBusy = false;
       capDone = null;
-      done("not-allowed");
+      done("gum-" + ((e && e.name) || "unknown"));
     });
   }
 
@@ -599,7 +599,10 @@
   }
 
   function voiceErrText(err) {
-    if (err === "not-allowed") { return "麦克风没有被允许。请点浏览器地址栏旁边的麦克风图标，允许这个网站使用麦克风，再试一次。"; }
+    if (err === "gum-NotAllowedError" || err === "not-allowed") { return "麦克风没有被允许。请点浏览器地址栏旁边的麦克风图标，允许这个网站使用麦克风，再试一次。"; }
+    if (err === "gum-NotReadableError" || err === "gum-AbortError") { return "麦克风被别的程序占用了（" + err.slice(4) + "）。先关掉正在用麦克风的程序——比如语音通话、钉钉会议、录音机——再点一次。"; }
+    if (err === "gum-NotFoundError" || err === "gum-OverconstrainedError") { return "没找到能用的麦克风（" + err.slice(4) + "）。确认麦克风插好了，或在浏览器设置里换一个麦克风设备。"; }
+    if (err && err.indexOf("gum-") === 0) { return "录音没能开始（错误：" + err.slice(4) + "）。把这个错误名告诉小鱼儿。"; }
     if (err === "unsupported") { return "这个浏览器不能录音，可以打字填。"; }
     if (err === "busy") { return "正在识别上一句，请稍等一下。"; }
     if (err === "network") { return "识别服务暂时连不上，可以打字填，或再点一下试一次。"; }
