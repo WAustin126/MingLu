@@ -45,7 +45,7 @@
 </head>
 <body>
 
-<div class="notice"><span class="notice-dot" aria-hidden="true"></span><strong>演示环境，请勿填写真实个人信息</strong><span>· 机构侧工作台：导入 → 诊断 → 修复 → 复检交付</span></div>
+<div class="notice"><span class="notice-dot" aria-hidden="true"></span><strong>演示环境，请勿填写真实个人信息</strong><span>· 机构侧工作台：导入 → 修复 → 发布</span></div>
 
 <div class="page page-wide">
 
@@ -67,9 +67,8 @@
   <ol class="stepbar" id="stepbar" aria-label="流程步骤">
     <li data-step="0"><span class="no">⌂</span>工作台总览</li>
     <li data-step="1"><span class="no">1</span>导入表单</li>
-    <li data-step="2"><span class="no">2</span>检查问题</li>
-    <li data-step="3"><span class="no">3</span>一键修好</li>
-    <li data-step="4"><span class="no">4</span>完成发布</li>
+    <li data-step="3"><span class="no">2</span>修复</li>
+    <li data-step="4"><span class="no">3</span>完成发布</li>
   </ol>
 
   <main id="main">
@@ -95,17 +94,13 @@
           <button type="button" class="btn" data-goto="1">进入导入</button>
         </div>
         <div class="bench-card">
-          <h3>2 · 检查问题</h3>
-          <p id="benchS2">按无障碍规则逐项检查，问题按拦路、严重、一般分级列出。</p>
-          <button type="button" class="btn" data-goto="2">进入检查</button>
-        </div>
-        <div class="bench-card">
-          <h3>3 · 一键修好</h3>
-          <p id="benchS3">能自动修的一键修；拿不准的先请你拍板，防止把好字段改坏。</p>
+          <h3>2 · 修复（先看问题，再一键修好）</h3>
+          <p id="benchS2">导入后直接看问题清单：能自动修的一键修，拿不准的先请你拍板。</p>
+          <p id="benchS3"></p>
           <button type="button" class="btn" data-goto="3">进入修复</button>
         </div>
         <div class="bench-card">
-          <h3>4 · 完成发布</h3>
+          <h3>3 · 完成发布</h3>
           <p id="benchS4">修复版再扫一遍，清零了才发布到个人端。</p>
           <button type="button" class="btn" data-goto="4">进入发布</button>
           <a class="btn secondary" href="../user/index.html" style="margin-left:8px">打开个人端</a>
@@ -127,7 +122,7 @@
     <!-- ================= 第 1 步：导入 ================= -->
     <section class="step-panel" id="panel-1" aria-labelledby="title-1">
       <h1 class="step-title" id="title-1" tabindex="-1">第 1 步：导入要检查的表单</h1>
-      <p class="step-desc">把要检查的表单放进来：示例、文件、拍照都可以。系统会先把表单读成一份<b>内容清单</b>——每一项填什么、是不是必填，都列清楚。<b>没有这份清单，就不往下检查，免得漏掉。</b></p>
+      <p class="step-desc">把要检查的表单放进来：示例、文件、拍照都可以。系统会先把表单读成一份<b>内容清单</b>——每一项填什么、是不是必填，都列清楚。<b>没有这份清单，就不往下修，免得漏掉。</b></p>
 
       <div class="card">
         <h2 style="font-size:1.05em;margin-top:0">导入方式</h2>
@@ -138,7 +133,7 @@
           <label class="btn" for="aiFileInput" style="cursor:pointer">上传照片 / PDF / Word</label>
           <input type="file" id="aiFileInput" accept="image/*,.pdf,.docx" class="visually-hidden">
         </div>
-        <p class="foot-note" style="margin-top:8px">纸质表拍照、PDF 电子表、Word 文档都可以，AI 会把里面的填写项读出来。只能读出「有哪些项」，读不出原表的结构问题；下一步的检查将读取示例表的问题清单，页面会标明来源。导入成功后自动进入下一步。</p>
+        <p class="foot-note" style="margin-top:8px">纸质表拍照、PDF 电子表、Word 文档都可以，AI 会把里面的填写项读出来。只能读出「有哪些项」，读不出原表的结构问题；下一步修复时将读取示例表的问题清单，页面会标明来源。导入成功后自动进入下一步。</p>
         <details style="margin-top:12px">
           <summary>高级方式（粘贴代码 / 导入千问办公的处理结果）</summary>
           <div style="margin-top:10px">
@@ -173,16 +168,19 @@
       </div>
 
       <div class="btn-row">
-        <button type="button" class="btn" id="toStep2" disabled>下一步：查看检查结果</button>
+        <button type="button" class="btn" id="toStep2" disabled>下一步：直接修复</button>
       </div>
       <p class="foot-note" id="gate1"></p>
     </section>
 
-    <!-- ================= 第 2 步：诊断 ================= -->
-    <section class="step-panel" id="panel-2" hidden aria-labelledby="title-2">
-      <h1 class="step-title" id="title-2" tabindex="-1">第 2 步：检查结果</h1>
-      <p class="step-desc" id="diagSource"></p>
 
+    <!-- ================= 第 3 步：修复 ================= -->
+    <section class="step-panel" id="panel-3" hidden aria-labelledby="title-3">
+      <h1 class="step-title" id="title-3" tabindex="-1">第 2 步：修复</h1>
+      <p class="step-desc">先看这张表查出的问题，拿不准的项你拍板，然后一键修好。只改表单的<b>结构和标注</b>，不动要填的内容；修好后生成一份新表单，原表不动，不满意可以重来。</p>
+
+      <h2 style="font-size:1.05em">先看问题</h2>
+      <p class="step-desc" id="diagSource"></p>
       <div class="stat3" id="stat3">
         <div class="cell"><span class="n" id="statTotal">0</span><span class="l">问题总数</span></div>
         <div class="cell sev"><span class="n" id="statSevere">0</span><span class="l">严重（会阻断独立填写）</span></div>
@@ -195,17 +193,10 @@
       <div id="pendingGuard" class="gate"></div>
 
       <div class="btn-row">
-        <button type="button" class="btn ghost" id="backTo1">上一步</button>
         <button type="button" class="btn secondary" id="dlIssues">下载问题清单</button>
-        <button type="button" class="btn" id="toStep3" disabled>下一步：一键修好</button>
       </div>
       <p class="foot-note" id="gate2"></p>
-    </section>
 
-    <!-- ================= 第 3 步：修复 ================= -->
-    <section class="step-panel" id="panel-3" hidden aria-labelledby="title-3">
-      <h1 class="step-title" id="title-3" tabindex="-1">第 3 步：一键修好</h1>
-      <p class="step-desc">点一下，把检查出的问题一次修好。只改表单的<b>结构和标注</b>，不动要填的内容；修好后生成一份新表单，原表不动，不满意可以重来。</p>
 
       <div class="card">
         <h2 style="font-size:1.02em;margin-top:0">这次要修的问题</h2>
@@ -238,7 +229,7 @@
 
     <!-- ================= 第 4 步：复检交付 ================= -->
     <section class="step-panel" id="panel-4" hidden aria-labelledby="title-4">
-      <h1 class="step-title" id="title-4" tabindex="-1">第 4 步：复检与发布</h1>
+      <h1 class="step-title" id="title-4" tabindex="-1">第 3 步：复检与发布</h1>
 
       <div id="recheckResult"></div>
       <div id="recheckDetail"></div>
@@ -379,7 +370,7 @@
 
   /* ---------- 步骤切换与门禁 ---------- */
   function goStep(n) {
-    [0, 1, 2, 3, 4].forEach(function (i) {
+    [0, 1, 3, 4].forEach(function (i) {
       $("#panel-" + i).hidden = (i !== n);
       var li = document.querySelector('.stepbar li[data-step="' + i + '"]');
       li.classList.toggle("active", i === n);
@@ -416,9 +407,9 @@
       "还没有导入表单（现在是 0 项）。先从上面选一种方式导入，这一步的按钮就会亮起来。";
 
     var left = pendingLeft();
-    $("#toStep3").disabled = left > 0;
+    $("#doFix").disabled = left > 0;
     $("#gate2").textContent = left > 0
-      ? "还有 " + left + " 项「需要你拍板」没有处理：逐项点「确认」或「忽略」，也可以点检查页上方的按钮全部按建议处理。处理完才能修——这是防止把好字段改坏的护栏。"
+      ? "还有 " + left + " 项「需要你拍板」没有处理：逐项点「确认」或「忽略」，也可以点本页上方的按钮全部按建议处理。处理完才能修——这是防止把好字段改坏的护栏。"
       : "";
 
     $("#toStep4").disabled = !state.fixedDone;
@@ -683,8 +674,8 @@
   });
 
   function advanceToCheck() {
-    if (!state.report) { loadReport().then(function () { goStep(2); }); }
-    else { goStep(2); }
+    if (!state.report) { loadReport().then(function () { goStep(3); }); }
+    else { goStep(3); }
   }
 
   $("#toStep2").addEventListener("click", advanceToCheck);
@@ -713,7 +704,7 @@
 
     var instances = (state.report.summary && state.report.summary.total_instances) || 0;
     $("#statNote").textContent = "共 " + violationsText(issues) + " 处；" +
-      (pending ? "其中 " + pending + " 项需要你确认一下：逐项看，或者点下方按钮全部按建议处理，处理完才进入修复。" : "需要你拍板的项已处理完，可以进入修复。");
+      (pending ? "其中 " + pending + " 项需要你确认一下：逐项看，或者点下方按钮全部按建议处理，处理完才能一键修好。" : "需要你拍板的项已处理完，可以一键修好。");
 
     $("#diagSource").textContent = isSample()
       ? "以下为本示例表单（original.html）的真实静态扫描结果，由规则层 a11y_scan.py 生成，证据含原文件行号。"
@@ -748,8 +739,9 @@
         "逐项点「确认」或「忽略」都行；未处理前不进修复范围。" +
         '<div style="margin-top:10px"><button type="button" class="btn" id="confirmAllPending">全部按建议处理（确认这 ' + left + ' 项）</button>' +
         ' <span class="foot-note">拿不准的先点这个，下面每一项仍然可以单独改。</span></div></div>'
-      : (pendingCountOriginal() ? '<div class="alert alert-ok">需要你拍板的项已全部处理，可以进入修复。</div>' : "");
+      : (pendingCountOriginal() ? '<div class="alert alert-ok">需要你拍板的项已全部处理，可以一键修好。</div>' : "");
     refreshGates();
+    renderFixScope();
   }
 
   function pendingCountOriginal() {
@@ -821,7 +813,7 @@
       state.decisions[d.getAttribute("data-id")] = d.getAttribute("data-decide");
       renderReport();
       var left = pendingLeft();
-      if (left === 0) { $("#toStep3").focus(); }
+      if (left === 0) { $("#doFix").focus(); }
     }
   });
 
@@ -831,14 +823,12 @@
       if (UNCERTAIN_CATS[it.category] && !state.decisions[it.id]) { state.decisions[it.id] = "confirmed"; }
     });
     renderReport();
-    $("#toStep3").focus();
+    $("#doFix").focus();
   });
 
   $("#dlIssues").addEventListener("click", function () {
     if (state.report) { Minglu.download("issues.json", JSON.stringify(state.report, null, 2), "application/json"); }
   });
-  $("#backTo1").addEventListener("click", function () { goStep(1); });
-  $("#toStep3").addEventListener("click", function () { if (pendingLeft() === 0) { renderFixScope(); goStep(3); } });
 
   /* ================= 第 3 步：修复 ================= */
 
@@ -893,7 +883,7 @@
     next();
   });
 
-  $("#backTo2").addEventListener("click", function () { goStep(2); });
+  $("#backTo2").addEventListener("click", function () { goStep(1); });
   $("#toStep4").addEventListener("click", function () { if (state.fixedDone) { runRecheck(); goStep(4); } });
 
   /* ================= 第 4 步：复检与交付 ================= */
@@ -1042,6 +1032,7 @@
 
     getSchema.then(function (schema) {
       MingluImport.publish(schema);
+      if (typeof renderBench === "function") { renderBench(); }
       MingluImport.clearImported();
       var n = (schema.fields || []).length;
       $("#publishStatus").innerHTML = '<div class="alert alert-ok">已发布到个人端：' + n +
@@ -1096,7 +1087,6 @@
   Array.prototype.forEach.call(document.querySelectorAll("[data-goto]"), function (b) {
     b.addEventListener("click", function () {
       var n = parseInt(b.getAttribute("data-goto"), 10);
-      if (n === 2) { advanceToCheck(); return; }
       if (n === 3) {
         if (!state.report) { loadReport().then(function () { renderFixScope(); goStep(3); }); }
         else { renderFixScope(); goStep(3); }
