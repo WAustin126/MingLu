@@ -683,7 +683,7 @@ function serveStatic(req, res, pathname) {
     const headers = Object.assign(baseHeaders(rel.startsWith('/data/')), {
       'Content-Type': type,
       'Content-Length': stat.size,
-      'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=300'
+      'Cache-Control': (ext === '.html' || ext === '.js' || ext === '.css') ? 'no-cache' : 'public, max-age=300'
     });
     res.writeHead(200, headers);
     if (req.method === 'HEAD') return res.end();

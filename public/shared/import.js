@@ -125,6 +125,25 @@
         var fs = el.closest("fieldset");
         if (fs && fs.querySelector("legend")) { label = textOf(fs.querySelector("legend")); }
       }
+      // 表格布局兜底：标题常是控制前一个单元格里的纯文字（政务表最常见），
+      // 它在原表里没有和控件绑定，但文字本身就是这一项的标题，先收下来，
+      // 后续由机构端检查确认绑定（labelFromContext 标记来源）。
+      var fromContext = false;
+      if (!label) {
+        var cell = el.closest("td, th");
+        if (cell && cell.previousElementSibling && /^(TD|TH)$/.test(cell.previousElementSibling.tagName)) {
+          label = textOf(cell.previousElementSibling);
+          if (label) { fromContext = true; }
+        }
+        if (!label) {
+          var psib = el.previousElementSibling;
+          if (psib && /^(SPAN|DIV|P|B|STRONG|FONT)$/.test(psib.tagName)) {
+            label = textOf(psib);
+            if (label) { fromContext = true; }
+          }
+        }
+      }
+      var rawLabelMarked = /[*＊]|必填/.test(label || "");
 
       // 找说明
       var help = "";
@@ -153,6 +172,8 @@
         placeholder: el.getAttribute("placeholder") || "",
         options: []
       };
+      if (fromContext) { f.labelFromContext = true; }
+      if (rawLabelMarked && !required) { f.requiredMarkSeen = true; }
 
       if (el.getAttribute("autocomplete")) { f.autocomplete = el.getAttribute("autocomplete"); }
       if (kind === "number") {

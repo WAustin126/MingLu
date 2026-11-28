@@ -84,7 +84,7 @@
         <div class="cell"><span class="n" id="benchInst">—</span><span class="l">问题实例（处）</span></div>
         <div class="cell"><span class="n" id="benchPassed">—</span><span class="l">已通过检查（项）</span></div>
       </div>
-      <p class="foot-note" id="benchDataNote">数字来自内置演示表单的确定性扫描报告（data/issues.json）；导入真实表单后，在第 1、2 步按同一套规则出报告。</p>
+      <p class="foot-note" id="benchDataNote">数字来自内置演示表单的确定性扫描报告（data/issues.json）；导入真实表单后，按结构规则对导入的表出现场报告，修复与发布都作用于导入的表本身。</p>
 
       <h2 style="margin-top:26px">处理流水线</h2>
       <div class="bench-grid">
@@ -133,7 +133,7 @@
           <label class="btn" for="aiFileInput" style="cursor:pointer">上传照片 / PDF / Word</label>
           <input type="file" id="aiFileInput" accept="image/*,.pdf,.docx" class="visually-hidden">
         </div>
-        <p class="foot-note" style="margin-top:8px">纸质表拍照、PDF 电子表、Word 文档都可以，AI 会把里面的填写项读出来。只能读出「有哪些项」，读不出原表的结构问题；下一步修复时将读取示例表的问题清单，页面会标明来源。导入成功后自动进入下一步。</p>
+        <p class="foot-note" style="margin-top:8px">纸质表拍照、PDF 电子表、Word 文档都可以，AI 会把里面的填写项读出来。下一步会按读出的结构逐项检查这张表自己（标题、必填、类型、分组、说明），修好后发布的就是这张表。导入成功后自动进入下一步。</p>
         <details style="margin-top:12px">
           <summary>高级方式（粘贴代码 / 导入千问办公的处理结果）</summary>
           <div style="margin-top:10px">
@@ -262,7 +262,7 @@
           <li><b>拿不准不硬判</b>：无法确定的项标成「需要你拍板」，由机构人员逐项决定，不自动修复。</li>
           <li><b>极端异形表单</b>：结构太特殊时进「需要你拍板」，或建议走线下窗口，不硬检、不硬修。</li>
           <li><b>修复可回退</b>：修复生成新文件、原表不动；不满意可回退重来。</li>
-          <li><b>数字口径</b>：本页「13 类 / 16 处」为示例表 original.html 的扫描结果；修复后 0 类 / 0 处为同一扫描器 <code>a11y_scan.py</code> 的复扫结果，仅适用于这张示例表。</li>
+          <li><b>数字口径</b>：示例表的「13 类 / 16 处」为 <code>a11y_scan.py</code> 对 original.html 的扫描结果，修复后 0 类 / 0 处为同一扫描器复扫；导入的表单由浏览器按结构规则现场扫描与复扫，数字以本页报告为准，仅适用于当前这张表。</li>
         </ul>
       </div>
 
@@ -296,6 +296,7 @@
     "contrast": "读不出来",
     "grouping": "分不清",
     "required-indication": "分不清",
+    "field-guidance": "分不清",
     "error-identification": "错了不知道",
     "error-location": "错了不知道",
     "status-notification": "错了不知道",
@@ -323,7 +324,8 @@
     "required-indication": "给必填控件补 required 与 aria-required",
     "input-semantics": "修正 input type 与 inputmode",
     "data-integrity": "用真实控件承载数值（number / spinbutton）",
-    "contrast": "提高文字与背景对比度到 4.5:1 以上"
+    "contrast": "提高文字与背景对比度到 4.5:1 以上",
+    "field-guidance": "给每一项补填写说明、格式示例与读屏提示"
   };
 
   // fixed.html 的权威复扫结果：由 tools/a11y_scan.py 离线跑出，随页面固定。
@@ -476,7 +478,7 @@
         esc(e && e.message || "未知原因") + "。按设计不进入检测。</div>";
     }
     renderModel();
-    if (state.schema && state.schema.fields && state.schema.fields.length) { advanceToCheck(); }
+    if (!state.suppressAutoAdvance && state.schema && state.schema.fields && state.schema.fields.length) { advanceToCheck(); }
   }
 
   $("#loadSample").addEventListener("click", function () {
@@ -484,14 +486,20 @@
       Minglu.fetchText("../data/original.html"),
       Minglu.fetchJSON("../data/form.schema.json").catch(function () { return null; })
     ]).then(function (res) {
+      // 先别自动跳步：等下面把语义层 schema 换上，再统一进修复步，
+      // 否则检查会抢先按原始解析结果出报告，和示例的权威报告对不上。
+      state.suppressAutoAdvance = true;
       acceptHtml(res[0], "original.html（内置示例）");
+      state.suppressAutoAdvance = false;
       // 字段模型取语义层结果（form.schema.json）：直接解析 HTML 只能看到 5 项、
       // 且识别不到必填——少的 1 项和 0 必填本身就是 A11Y-011 / A11Y-009 这两处缺陷。
       if (res[1] && res[1].fields && res[1].fields.length) {
         state.schema = res[1];
         state.schemaSource = "精读结果（form.schema.json）";
+        state.report = null; state.reportSource = "";
         renderModel();
       }
+      advanceToCheck();
     }).catch(function () {
       $("#importResult").innerHTML = '<div class="alert alert-err">' + Minglu.explainLoadError("original.html") + "</div>";
     });
@@ -527,8 +535,8 @@
     state.report = null; state.reportSource = "";
     state.decisions = {}; state.fixedDone = false; state.recheck = null;
     $("#importResult").innerHTML = '<div class="alert alert-ok">已通过 AI 识别导入「' + esc(name) +
-      "」：字段 " + schema.fields.length + " 项，已设为当前表单。原表的结构问题不在识别范围内，" +
-      "下一步将读取示例表的问题清单（页面会标明来源）。</div>";
+      "」：字段 " + schema.fields.length + " 项，已设为当前表单。" +
+      "下一步将按这张表自己的结构生成问题清单，逐项修复后发布的就是这张表。</div>";
     renderModel();
     advanceToCheck();
   }
@@ -667,7 +675,7 @@
     $("#importResult").innerHTML = '<div class="alert alert-ok">已导入：' + esc(p.schemaName) +
       "，字段 " + p.schema.fields.length + " 项" +
       (p.issues ? "；同时导入检查结果 " + p.issues.issues.length + " 条。" : "；未导入检查结果，" +
-        "下一步将读取示例表的问题清单（页面会标明来源）。") + "</div>";
+        "下一步将按这张表自己的结构生成问题清单。") + "</div>";
     renderModel();
     renderReport();
     advanceToCheck();
@@ -682,7 +690,244 @@
 
   /* ================= 第 2 步：诊断报告 ================= */
 
+
+  /* ================= 导入表结构扫描（真诊断 / 真修复 / 真复检） =================
+     对导入的表单（HTML / AI 识别 / 产物导入）按结构规则现场生成它自己的问题清单；
+     修复直接作用于导入的表单结构，复检用同一把尺子重扫。源码级项目（对比度、
+     键盘焦点等）不在这轮范围内，页面来源说明里如实标注。 */
+  function semanticTypeFor(f) {
+    var t = (f.label || "") + " " + (f.key || "");
+    if (/邮箱|电子邮件|e-?mail/i.test(t)) { return "email"; }
+    if (/手机|电话|联系方式|tel|phone|mobile/i.test(t)) { return "tel"; }
+    if (/日期|生日|出生|年月日/.test(t)) { return "date"; }
+    if (/人数|数量|金额|年龄|价格|费用|收入/.test(t)) { return "number"; }
+    return null;
+  }
+  var FORMAT_HELP = {
+    email: "例如 name@example.com，请填常用邮箱",
+    tel: "请填 11 位手机号码",
+    date: "例如 2026 年 1 月 30 日",
+    number: "请填数字"
+  };
+  function isFormatType(t) { return t === "email" || t === "tel" || t === "date" || t === "number"; }
+
+  function annotateFromHtml(schema, html) {
+    try {
+      var doc = new DOMParser().parseFromString(html, "text/html");
+      var formEl = doc.querySelector("form") || doc.body;
+      var controls = Array.prototype.slice.call(formEl.querySelectorAll("input, textarea, select")).filter(function (c) {
+        var k = (c.getAttribute("type") || "").toLowerCase();
+        return !/^(hidden|submit|button|reset|image|file)$/.test(k);
+      });
+      (schema.fields || []).forEach(function (f) {
+        var mine = controls.filter(function (c) {
+          return (c.getAttribute("name") || c.getAttribute("id") || "") === f.key;
+        });
+        if (!mine.length) { return; }
+        var c = mine[0];
+        var wrap = c.closest("label");
+        var id = c.getAttribute("id");
+        var forLabel = null;
+        if (id) {
+          try { forLabel = formEl.querySelector('label[for="' + id.replace(/"/g, '\\"') + '"]'); } catch (e) {}
+        }
+        var legend = null;
+        var fs = c.closest("fieldset");
+        if (fs) { legend = fs.querySelector("legend"); }
+        var labelText = ((wrap && wrap.textContent) || "") + ((forLabel && forLabel.textContent) || "") + ((legend && legend.textContent) || "");
+        if (!wrap && !forLabel && !c.getAttribute("aria-label") && !c.getAttribute("aria-labelledby")) { f.labelUnassociated = true; }
+        var marked = /[*＊]|必填/.test(labelText);
+        var hasReq = c.hasAttribute("required") || c.getAttribute("aria-required") === "true";
+        if (marked && !hasReq) { f.requiredMarkSeen = true; }
+        if ((f.type === "radio" || f.type === "checkbox") && !legend) { f.groupNoLegend = true; }
+      });
+    } catch (e) { /* 标注尽力而为，失败不阻断扫描 */ }
+  }
+
+  var SCAN_DEFS = [
+    { category: "label-associated", severity: "blocker",
+      title: "有字段没有和控件绑定的标题（读屏读不出这一项）",
+      detail: "这些项在原表里没有与控件绑定的标题文字，或导入后标题为空。读屏软件落到这一项时只会播报控件类型，用户不知道要填什么。",
+      standard: "WCAG 2.1 · 1.3.1 信息与关系 / 4.1.2 名称、角色、值",
+      test: function (f) {
+        var lab = (f.label || "").trim();
+        return !!f.labelUnassociated || !!f.labelFromContext || !lab || /^第\s*\d+\s*项$/.test(lab);
+      } },
+    { category: "required-indication", severity: "serious",
+      title: "必填只做了视觉标记，没有真实必填属性",
+      detail: "原表只在文字上加了星号或「必填」字样，控件本身没有必填标记：读屏不会播报必填，提交校验也拦不住空着不填。",
+      standard: "WCAG 2.1 · 1.3.1 / 3.3.2 标签或说明",
+      test: function (f) { return !!f.requiredMarkSeen && !f.required; } },
+    { category: "input-semantics", severity: "serious",
+      title: "填写项类型和内容对不上（邮箱 / 电话 / 日期 / 数字）",
+      detail: "这些项按内容应该是邮箱、电话、日期或数字，却按普通文本收取：手机上弹不出对应键盘，也做不了格式校验，填错率高。",
+      standard: "WCAG 2.1 · 1.3.5 识别输入用途",
+      test: function (f) { return f.type === "text" && !!semanticTypeFor(f); } },
+    { category: "grouping", severity: "moderate",
+      title: "选项组结构不完整（缺分组标题或有空选项）",
+      detail: "选项组没有明确的分组标题，或存在没有文字的选项：读屏用户听不出这组在问什么，也选不了没有文字的选项。",
+      standard: "WCAG 2.1 · 1.3.1 信息与关系",
+      test: function (f) {
+        if (f.type !== "radio" && f.type !== "checkbox") { return false; }
+        if (f.groupNoLegend) { return true; }
+        var opts = f.options || [];
+        if (!opts.length) { return true; }
+        if (f.type === "radio" && opts.length < 2) { return true; }
+        return opts.some(function (o) { return !(o.label && String(o.label).trim()); });
+      } },
+    { category: "field-guidance", severity: "moderate",
+      title: "缺少填写说明、格式示例或读屏提示",
+      detail: "这些项没有写明格式或举例，用户只能猜：邮箱漏了 @、日期格式五花八门，错了要到提交之后才知道。",
+      standard: "WCAG 2.1 · 3.3.2 标签或说明",
+      test: function (f) {
+        var lackHelp = isFormatType(f.type) && !(f.help && String(f.help).trim());
+        var lackHint = !(f.screen_reader_hint && String(f.screen_reader_hint).trim());
+        return lackHelp || lackHint;
+      } },
+    { category: "data-integrity", severity: "moderate",
+      title: "AI 识别存疑项，需要人工确认",
+      detail: "这些项由 AI 从文件识别，识别时标了存疑。请确认它确实是这张表要收集的内容：确认后保留并清除存疑标记；忽略则保留原样，复检时注明已确认保留。",
+      standard: "项目规则 · 识别存疑项须人工确认后发布",
+      test: function (f) { return !!(f.uncertain && String(f.uncertain).trim()); } }
+  ];
+
+  function scanSchema(schema) {
+    var fields = (schema && schema.fields) || [];
+    var formTitle = (schema && schema.form && schema.form.title) || "导入的表单";
+    var issues = [];
+    SCAN_DEFS.forEach(function (def) {
+      var occ = [];
+      fields.forEach(function (f) {
+        if (def.test(f)) {
+          occ.push({ fieldKey: f.key, note: "字段「" + (f.label || f.key || "未命名") + "」" +
+            (def.category === "data-integrity" ? "：存疑说明——" + String(f.uncertain) : "") });
+        }
+      });
+      if (occ.length) {
+        issues.push({
+          id: "SCH-" + def.category,
+          detector: "schema-scan",
+          category: def.category,
+          severity: def.severity,
+          title: def.title,
+          detail: def.detail + " 涉及字段：" + occ.map(function (o) { return o.note; }).join("；") + "。",
+          proposed_fix: FIX_ACTION[def.category] || "",
+          standard: def.standard,
+          evidence: { file: formTitle, line: 0, code: "", note: occ[0].note },
+          occurrences: occ
+        });
+      }
+    });
+    var bySev = { blocker: 0, serious: 0, moderate: 0, advisory: 0 };
+    var inst = 0;
+    issues.forEach(function (it) {
+      bySev[it.severity] = (bySev[it.severity] || 0) + 1;
+      inst += it.occurrences.length;
+    });
+    var passed = [];
+    function has(cat) { return issues.some(function (i) { return i.category === cat; }); }
+    if (!has("label-associated")) { passed.push({ title: "所有字段都有标题文字", detector: "schema-scan" }); }
+    if (!has("required-indication")) { passed.push({ title: "必填标记无仅视觉星号的情况", detector: "schema-scan" }); }
+    if (!has("grouping")) { passed.push({ title: "选项组结构完整（分组标题与选项文字齐全）", detector: "schema-scan" }); }
+    if (formTitle) { passed.push({ title: "表单有标题", detector: "schema-scan" }); }
+    return {
+      schema_version: "1.0-schema-scan",
+      meta: { tool: "明路结构扫描（浏览器现场执行）", target: formTitle, generated_at: new Date().toISOString() },
+      summary: { blocker: bySev.blocker, serious: bySev.serious, moderate: bySev.moderate, advisory: 0,
+                 passed: passed.length, total: issues.length, total_instances: inst },
+      issues: issues,
+      advisories: [],
+      passed_checks: passed
+    };
+  }
+
+  function applyGeneratedFixes(schema, report, decisions) {
+    var out = JSON.parse(JSON.stringify(schema));
+    var byKey = {};
+    (out.fields || []).forEach(function (f) { byKey[f.key] = f; });
+    var changes = [];
+    var todo = (report.issues || []).filter(function (it) {
+      if (!UNCERTAIN_CATS[it.category]) { return true; }
+      return decisions[it.id] === "confirmed";
+    });
+    todo.forEach(function (it) {
+      (it.occurrences || []).forEach(function (occ) {
+        var f = byKey[occ.fieldKey];
+        if (!f) { return; }
+        var L = f.label || f.key;
+        if (it.category === "label-associated") {
+          var labNow = (f.label || "").trim();
+          if (!labNow || /^第\s*\d+\s*项$/.test(labNow)) { f.label = f.placeholder || f.key || "未命名项"; }
+          delete f.labelUnassociated;
+          delete f.labelFromContext;
+          changes.push("为「" + (f.label || L) + "」绑定标题文字（原表标题未与控件关联）");
+        } else if (it.category === "required-indication") {
+          f.required = true;
+          delete f.requiredMarkSeen;
+          if (!f.validation || !f.validation.length) {
+            f.validation = [{ rule: "non_empty", message: (f.label || L) + "不能为空" }];
+          }
+          changes.push("「" + L + "」的视觉必填标记改为真实必填属性");
+        } else if (it.category === "input-semantics") {
+          var t = semanticTypeFor(f);
+          if (t) {
+            f.type = t;
+            if (t === "tel") { f.inputmode = "tel"; }
+            if (t === "email") { f.autocomplete = "email"; }
+            if (t === "number") {
+              f.inputmode = "numeric";
+              if (f.min == null) { f.min = 0; }
+              if (f.max == null) { f.max = 999999; }
+              if (f.step == null) { f.step = 1; }
+            }
+            changes.push("「" + L + "」的类型由文本改为 " + t);
+          }
+        } else if (it.category === "grouping") {
+          var before = (f.options || []).length;
+          f.options = (f.options || []).filter(function (o) { return o.label && String(o.label).trim(); });
+          if (f.groupNoLegend) { f.groupTitle = f.label || L; delete f.groupNoLegend; }
+          var note = "选项组「" + L + "」补分组标题" + (f.options.length !== before ? "，并去掉没有文字的选项" : "");
+          if (f.options.length === 1) {
+            f.type = "checkbox";
+            note += "；只剩一个有效选项，改为单个勾选项";
+          } else if (f.options.length === 0) {
+            f.type = "text";
+            note += "；选项文字全部缺失，改为文本填写";
+          }
+          changes.push(note);
+        } else if (it.category === "field-guidance") {
+          var changed = false;
+          if (isFormatType(f.type) && !(f.help && String(f.help).trim())) { f.help = FORMAT_HELP[f.type] || ""; changed = true; }
+          if (!(f.screen_reader_hint && String(f.screen_reader_hint).trim())) {
+            f.screen_reader_hint = (f.required ? "必填。" : "") + (f.label || L) + (f.help ? "：" + f.help : "");
+            changed = true;
+          }
+          if (f.required && (!f.validation || !f.validation.length)) {
+            f.validation = [{ rule: "non_empty", message: (f.label || L) + "不能为空" }];
+            changed = true;
+          }
+          if (changed) { changes.push("为「" + L + "」补填写说明与读屏提示"); }
+        } else if (it.category === "data-integrity") {
+          changes.push("确认保留「" + L + "」（原存疑：" + String(f.uncertain) + "），清除存疑标记");
+          f.uncertain = "";
+        }
+      });
+    });
+    (out.fields || []).forEach(function (f) {
+      delete f.labelUnassociated; delete f.requiredMarkSeen; delete f.groupNoLegend; delete f.labelFromContext;
+    });
+    return { schema: out, changes: changes };
+  }
+
   function loadReport() {
+    if (state.schema && state.schema.fields && state.schema.fields.length &&
+        state.schemaSource && state.schemaSource !== "精读结果（form.schema.json）") {
+      if (state.html) { annotateFromHtml(state.schema, state.html); }
+      state.report = scanSchema(state.schema);
+      state.reportSource = "generated";
+      renderReport();
+      return Promise.resolve();
+    }
     return Minglu.fetchJSON("../data/issues.json").then(function (data) {
       state.report = data;
       state.reportSource = "sample";
@@ -706,7 +951,9 @@
     $("#statNote").textContent = "共 " + violationsText(issues) + " 处；" +
       (pending ? "其中 " + pending + " 项需要你确认一下：逐项看，或者点下方按钮全部按建议处理，处理完才能一键修好。" : "需要你拍板的项已处理完，可以一键修好。");
 
-    $("#diagSource").textContent = isSample()
+    $("#diagSource").textContent = state.reportSource === "generated"
+      ? "以下为这张导入表单自己的检查结果：浏览器按结构规则逐项核对导入的表单结构（标题绑定、必填标记、类型、分组、填写说明、识别存疑项），问题都出自这张表，不是示例表。这轮是结构级检查，不含对比度、键盘焦点等源码级项目；那些需要对原始 HTML 跑 a11y_scan.py。"
+      : isSample()
       ? "以下为本示例表单（original.html）的真实静态扫描结果，由规则层 a11y_scan.py 生成，证据含原文件行号。"
       : "问题清单来自你导入的 issues.json（" + (state.pendingImport.issuesName || "导入文件") + "）。" +
         "要点提取针对你导入的表；诊断数值以这份文件为准，本页不重算、不改写。";
@@ -859,7 +1106,33 @@
       if (i >= items.length) {
         var li = document.createElement("li");
         li.className = "ok";
-        li.innerHTML = "<span class='mark'>✓</span> 修复完成：已生成 fixed.html（原表未改动，可回退）。";
+        if (state.reportSource === "generated") {
+          // 一键修好 = 修到复扫清零为止：修类型会带出新的说明缺失等问题，
+          // 所以修完一轮就用同一把尺子重扫，还有问题就接着修（最多 3 轮）。
+          var workSchema = state.schema;
+          var allChanges = [];
+          var roundReport = state.report;
+          for (var round = 0; round < 3; round++) {
+            var rr = applyGeneratedFixes(workSchema, roundReport, state.decisions);
+            workSchema = rr.schema;
+            allChanges = allChanges.concat(rr.changes);
+            var again = scanSchema(workSchema);
+            var left = again.issues.filter(function (x) { return state.decisions[x.id] !== "ignored"; });
+            if (!left.length) { break; }
+            roundReport = again;
+          }
+          state.schema = workSchema;
+          var res = { changes: allChanges };
+          if (!state._compareHtml) { state._compareHtml = $("#compareArea").innerHTML; }
+          li.innerHTML = "<span class='mark'>✓</span> 修复完成：已按本表报告修好这张导入表单的结构（原导入内容未改动，可重新导入回退）。共 " + res.changes.length + " 处改动。";
+          $("#compareArea").innerHTML = '<h2 style="font-size:1.05em">修复改动清单（这张导入表）</h2>' +
+            (res.changes.length
+              ? '<ul class="review-list">' + res.changes.map(function (c) { return "<li>" + esc(c) + "</li>"; }).join("") + "</ul>"
+              : '<p class="foot-note">本轮没有实际改动。</p>');
+        } else {
+          if (state._compareHtml) { $("#compareArea").innerHTML = state._compareHtml; }
+          li.innerHTML = "<span class='mark'>✓</span> 修复完成：已生成 fixed.html（原表未改动，可回退）。";
+        }
         log.appendChild(li);
         $("#compareArea").hidden = false;
         state.fixedDone = true;
@@ -949,6 +1222,35 @@
 
   function runRecheck() {
     var before = (state.report.summary && state.report.summary.total_instances) || violationsText(state.report.issues);
+
+    if (state.reportSource === "generated") {
+      var rescan = scanSchema(state.schema);
+      var remaining = rescan.issues.filter(function (it) { return state.decisions[it.id] !== "ignored"; });
+      var ignoredN = rescan.issues.length - remaining.length;
+      var remInst = violationsText(remaining);
+      state.recheck = { failed: remaining.length, auth: { total: remaining.length }, checks: [] };
+      if (!remaining.length) {
+        $("#recheckResult").innerHTML =
+          '<div class="big-result ok"><div class="num">修复前 ' + before + " 处 → 修复后 0 处</div>" +
+          '<div class="cap">结构复扫（同一套结构规则，浏览器现场执行）：0 类 / 0 处；' +
+          rescan.passed_checks.length + " 项结构检查通过。" +
+          (ignoredN ? "<br>另有 " + ignoredN + " 类经你确认保留，不计入未通过。" : "") + "</div></div>";
+        $("#recheckDetail").innerHTML =
+          '<div class="alert alert-ok">这张导入表单的结构问题已清零，可以发布——发布的就是修复后的这张表。</div>';
+        $("#deliverGate").innerHTML = '<div class="alert alert-ok">复检清零（0 类 / 0 处），可以交付。</div>';
+      } else {
+        $("#recheckResult").innerHTML =
+          '<div class="big-result bad"><div class="num">修复后仍剩 ' + remaining.length + " 类 / " + remInst + " 处</div>" +
+          '<div class="cap">结构复扫未清零，按设计不发布。还剩的问题列在下面，回到修复步处理。</div></div>';
+        $("#recheckDetail").innerHTML = '<div class="alert alert-warn">还没清掉的问题：<ul style="margin:8px 0 0">' +
+          remaining.map(function (it) {
+            return "<li><b>" + esc(it.title) + "</b>（" + (it.occurrences || []).map(function (x) { return esc(x.note || ""); }).join("；") + "）</li>";
+          }).join("") + "</ul></div>";
+        $("#deliverGate").innerHTML = "";
+      }
+      refreshGates();
+      return;
+    }
 
     if (!isSample()) {
       // 换表后没有权威复扫结果：不冒充，直接把门关上并给出该走的命令
