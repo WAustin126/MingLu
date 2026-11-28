@@ -109,14 +109,13 @@
 
       <h2 style="margin-top:26px">表单库</h2>
       <table class="data-table" style="width:100%">
-        <thead><tr><th>表单</th><th>来源</th><th>状态</th></tr></thead>
-        <tbody>
-          <tr><td id="benchLibDemo">演示表单</td><td>内置示例（data/form.schema.json）</td><td id="benchLibDemoState">已完成诊断</td></tr>
-          <tr><td id="benchLibPub">已发布到个人端的版本</td><td>服务器发布记录</td><td id="benchLibPubState">尚未发布</td></tr>
-          <tr><td id="benchLibImp">个人端导入的表单</td><td>个人端「打开一张表」</td><td id="benchLibImpState">暂无</td></tr>
+        <thead><tr><th>表单</th><th>来源</th><th>状态</th><th>操作</th></tr></thead>
+        <tbody id="benchLibBody">
+          <tr id="benchLibDemoRow"><td id="benchLibDemo">演示表单</td><td>内置示例（data/form.schema.json）</td><td id="benchLibDemoState">已完成诊断</td><td>—</td></tr>
+          <tr><td id="benchLibImp">个人端导入的表单</td><td>个人端「打开一张表」</td><td id="benchLibImpState">暂无</td><td>—</td></tr>
         </tbody>
       </table>
-      <p class="foot-note">发布保存在服务器上：任何浏览器、任何设备打开个人端，读到的都是最新发布的表；个人端导入的表仍只存在当前浏览器里。</p>
+      <p class="foot-note">发布过的表都存进服务器表单库，一张都不会被覆盖掉：随时下架、重新发布或删除；个人端打开先从已发布的表里选一张再填。个人端自己导入的表仍只存在当前浏览器里。</p>
     </section>
 
     <!-- ================= 第 1 步：导入 ================= -->
@@ -1338,8 +1337,8 @@
       var n = (schema.fields || []).length;
       return MingluImport.publishToServer(schema).then(function () {
         if (typeof renderBench === "function") { renderBench(); }
-        $("#publishStatus").innerHTML = '<div class="alert alert-ok">已发布到个人端（服务器）：' + n +
-          " 项字段。任何浏览器、任何设备打开个人端，读到的都是这份表。 <a href=\"../user/index.html\">去个人端验证 →</a></div>";
+        $("#publishStatus").innerHTML = '<div class="alert alert-ok">已存入表单库并发布到个人端（服务器）：' + n +
+          " 项字段。个人端打开先选表，这张和以前发布过的表都能选、能再调用。 <a href=\"../user/index.html\">去个人端验证 →</a></div>";
       }).catch(function () {
         if (typeof renderBench === "function") { renderBench(); }
         $("#publishStatus").innerHTML = '<div class="alert alert-ok">已发布到本浏览器的个人端：' + n +
@@ -1375,23 +1374,30 @@
     if (state.fixedDone) {
       benchSet("#benchS3", "修复版已生成，可去复检发布。");
     }
-    var pub = null, imp = null;
-    try { pub = MingluImport.getPublished(); } catch (e) {}
+    var imp = null;
     try { imp = MingluImport.getImported(); } catch (e) {}
-    function paintPub(p, server) {
-      var pt = (p.schema.form && p.schema.form.title) || p.schema.title || "已发布表单";
-      var pf = (p.schema.fields || []).length;
-      var when = p.at ? new Date(p.at).toLocaleString("zh-CN", { hour12: false }) : "";
-      benchSet("#benchLibPub", "《" + pt + "》（" + pf + " 项）");
-      benchSet("#benchLibPubState", (server ? "已发布（服务器）" : "已发布") + (when ? " · " + when : ""));
-      benchSet("#benchS4", server
-        ? "已发布《" + pt + "》到个人端（服务器），任何浏览器打开都是这张表。"
-        : "已发布《" + pt + "》到个人端，填表人打开即是这张表。");
+    if (MingluImport.getLibrary) {
+      MingluImport.getLibrary().then(function (lib) {
+        Array.prototype.forEach.call(document.querySelectorAll("#benchLibBody .lib-row"), function (r) { r.remove(); });
+        var demoRow = document.getElementById("benchLibDemoRow");
+        var forms = (lib && lib.forms) || [];
+        forms.slice().reverse().forEach(function (f) {
+          var tr = document.createElement("tr");
+          tr.className = "lib-row";
+          var when = f.updated_at ? new Date(f.updated_at).toLocaleString("zh-CN", { hour12: false }) : "";
+          var n = ((f.schema && f.schema.fields) || []).length;
+          tr.innerHTML = "<td>《" + esc(f.title) + "》（" + n + " 项）</td><td>服务器表单库</td>" +
+            "<td>" + (f.published ? "已发布，个人端可选" : "已下架，个人端选不到") + (when ? " · " + esc(when) : "") + "</td>" +
+            '<td><button type="button" class="btn secondary" data-libact="' + (f.published ? "off" : "on") + '" data-libid="' + esc(f.id) + '">' + (f.published ? "下架" : "发布") + "</button> " +
+            '<button type="button" class="btn ghost" data-libact="del" data-libid="' + esc(f.id) + '">删除</button></td>';
+          demoRow.parentNode.insertBefore(tr, demoRow.nextSibling);
+        });
+        if (forms.length) {
+          var pubs = forms.filter(function (f) { return f.published; }).length;
+          benchSet("#benchS4", "表单库共 " + forms.length + " 张，其中 " + pubs + " 张已发布；个人端打开先选表，发布过的表都能再调用。");
+        }
+      });
     }
-    MingluImport.getServerPublished().then(function (sp) {
-      if (sp && sp.schema) { paintPub(sp, true); return; }
-      if (pub && pub.schema) { paintPub(pub, false); }
-    });
     if (imp && imp.schema) {
       var it = (imp.schema.form && imp.schema.form.title) || imp.schema.title || "导入的表单";
       benchSet("#benchLibImp", "《" + it + "》（" + (imp.schema.fields || []).length + " 项）");
@@ -1409,6 +1415,18 @@
       goStep(n);
     });
   });
+  var libBodyEl = document.getElementById("benchLibBody");
+  if (libBodyEl) {
+    libBodyEl.addEventListener("click", function (ev) {
+      var b = ev.target && ev.target.closest ? ev.target.closest("[data-libact]") : null;
+      if (!b) return;
+      var id = b.getAttribute("data-libid");
+      var act = b.getAttribute("data-libact");
+      b.disabled = true;
+      var p = act === "del" ? MingluImport.libraryRemove(id) : MingluImport.libraryToggle(id, act === "on");
+      p.then(function () { renderBench(); }).catch(function () { b.disabled = false; });
+    });
+  }
   var benchLi = document.querySelector('.stepbar li[data-step="0"]');
   if (benchLi) { benchLi.addEventListener("click", function () { goStep(0); }); }
 

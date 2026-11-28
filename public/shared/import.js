@@ -290,9 +290,9 @@
     localStorage.setItem(PUBLISHED_KEY, JSON.stringify(payload));
     return payload;
   };
-  /* 服务器发布：发布存到服务器，任何浏览器打开个人端都读得到（2026-11-28） */
+  /* 服务器发布：存入服务器表单库并发布，发布过的表都留着、可再调用（2026-11-28） */
   Import.publishToServer = function (schema) {
-    return fetch("../api/publish", {
+    return fetch("../api/library", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ schema: schema })
@@ -308,6 +308,30 @@
     }).then(function (p) {
       return (p && p.schema && Array.isArray(p.schema.fields)) ? p : null;
     }).catch(function () { return null; });
+  };
+
+  /* 表单库（服务器）：发布过的全部表单 */
+  Import.getLibrary = function () {
+    return fetch("../data/library.json", { cache: "no-store" }).then(function (r) {
+      if (!r.ok) { return null; }
+      return r.json();
+    }).then(function (p) {
+      return (p && Array.isArray(p.forms)) ? p : null;
+    }).catch(function () { return null; });
+  };
+  Import.libraryToggle = function (id, published) {
+    return fetch("../api/library/toggle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: id, published: !!published })
+    }).then(function (r) { if (!r.ok) { throw new Error("HTTP " + r.status); } return r.json(); });
+  };
+  Import.libraryRemove = function (id) {
+    return fetch("../api/library/remove", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: id })
+    }).then(function (r) { if (!r.ok) { throw new Error("HTTP " + r.status); } return r.json(); });
   };
 
   Import.getPublished = function () {

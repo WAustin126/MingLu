@@ -259,6 +259,109 @@ async function handlePublish(req, res) {
   return json(res, 200, { ok: true, fields: schema.fields.length, at: payload.at });
 }
 
+/* ---------- 表单库：发布过的表都存服务器，可再调用（2026-11-28） ---------- */
+var LIBRARY_FILE = path.join(PUBLIC_DIR, 'data', 'library.json');
+var LIBRARY_MAX = 50;
+
+function readLibrary() {
+  try {
+    var raw = fs.readFileSync(LIBRARY_FILE, 'utf8');
+    var data = JSON.parse(raw);
+    if (data && Array.isArray(data.forms)) return data.forms;
+  } catch (e) { /* 文件不存在或损坏：走播种 */ }
+  // 播种：把已有的单张发布记录收进库，保证升级前的发布不丢
+  var forms = [];
+  try {
+    var pub = JSON.parse(fs.readFileSync(path.join(PUBLIC_DIR, 'data', 'published.schema.json'), 'utf8'));
+    if (pub && pub.schema && Array.isArray(pub.schema.fields) && pub.schema.fields.length) {
+      forms.push({
+        id: 'lib-seed',
+        title: (pub.schema.form && pub.schema.form.title) || '已发布表单',
+        schema: pub.schema,
+        published: true,
+        created_at: pub.at || new Date().toISOString(),
+        updated_at: pub.at || new Date().toISOString()
+      });
+      writeLibrary(forms);
+    }
+  } catch (e) { /* 没有旧发布记录：空库 */ }
+  return forms;
+}
+
+function writeLibrary(forms) {
+  var payload = { forms: forms, updated_at: new Date().toISOString() };
+  fs.writeFileSync(LIBRARY_FILE + '.tmp', JSON.stringify(payload, null, 2));
+  fs.renameSync(LIBRARY_FILE + '.tmp', LIBRARY_FILE);
+}
+
+function validSchema(schema) {
+  return !!(schema && schema.form && Array.isArray(schema.fields) && schema.fields.length > 0);
+}
+
+async function handleLibrarySave(req, res) {
+  const ctype = String(req.headers['content-type'] || '');
+  if (!ctype.toLowerCase().includes('application/json')) {
+    return json(res, 415, { error: 'Content-Type 必须是 application/json。' });
+  }
+  const read = await readJsonBody(req, PUBLISH_MAX_BODY);
+  if (read.error) return json(res, read.code || 400, { error: read.error });
+  const schema = read.value && read.value.schema;
+  if (!validSchema(schema)) {
+    return json(res, 400, { error: 'schema 不合法：需要 form 和非空的 fields 数组。' });
+  }
+  var forms = readLibrary();
+  var title = (schema.form && schema.form.title) || '未命名表单';
+  var now = new Date().toISOString();
+  var existing = null;
+  forms.forEach(function (f) { if (f.title === title) existing = f; });
+  if (existing) {
+    existing.schema = schema;
+    existing.published = true;
+    existing.updated_at = now;
+  } else {
+    if (forms.length >= LIBRARY_MAX) {
+      return json(res, 400, { error: '表单库已满（最多 ' + LIBRARY_MAX + ' 张），请先在机构端删掉不用的表。' });
+    }
+    forms.push({
+      id: 'lib-' + Date.now().toString(36) + Math.floor(Math.random() * 65536).toString(36),
+      title: title, schema: schema, published: true, created_at: now, updated_at: now
+    });
+    existing = forms[forms.length - 1];
+  }
+  writeLibrary(forms);
+  // 兼容旧逻辑：单张发布记录同步为最近发布的一张
+  try {
+    var target = path.join(PUBLIC_DIR, 'data', 'published.schema.json');
+    var payload = { schema: schema, at: now, from: '机构侧表单库（服务器发布）' };
+    fs.writeFileSync(target + '.tmp', JSON.stringify(payload, null, 2));
+    fs.renameSync(target + '.tmp', target);
+  } catch (e) { /* 同步失败不影响入库 */ }
+  console.log('[library] 已存入表单库并发布：' + title + '，' + schema.fields.length + ' 项');
+  return json(res, 200, { ok: true, id: existing.id, fields: schema.fields.length, at: now });
+}
+
+async function handleLibraryFlag(req, res, mode) {
+  const read = await readJsonBody(req, MAX_BODY);
+  if (read.error) return json(res, read.code || 400, { error: read.error });
+  var id = read.value && read.value.id;
+  if (!id) return json(res, 400, { error: '缺少 id。' });
+  var forms = readLibrary();
+  var idx = -1;
+  forms.forEach(function (f, i) { if (f.id === id) idx = i; });
+  if (idx < 0) return json(res, 404, { error: '表单库里没有这张表。' });
+  if (mode === 'remove') {
+    var removed = forms.splice(idx, 1)[0];
+    writeLibrary(forms);
+    console.log('[library] 已删除：' + removed.title);
+    return json(res, 200, { ok: true, removed: removed.title });
+  }
+  forms[idx].published = !!(read.value && read.value.published);
+  forms[idx].updated_at = new Date().toISOString();
+  writeLibrary(forms);
+  console.log('[library] ' + (forms[idx].published ? '已发布' : '已下架') + '：' + forms[idx].title);
+  return json(res, 200, { ok: true, id: id, published: forms[idx].published });
+}
+
 async function handleExplain(req, res) {
   if (!API_KEY) {
     return json(res, 503, {
@@ -937,6 +1040,24 @@ const server = http.createServer((req, res) => {
     handleExplain(req, res).catch((e) => {
       console.error('[explain] handler error ' + (e && e.name));
       if (!res.headersSent) json(res, 500, { error: '服务端内部错误，本次没有调用模型。' });
+    });
+    return;
+  }
+
+  if (pathname === '/api/library') {
+    if (method !== 'POST') return json(res, 405, { error: 'method not allowed' });
+    handleLibrarySave(req, res).catch((e) => {
+      console.error('[library] save error ' + (e && e.name));
+      if (!res.headersSent) json(res, 500, { error: '服务端内部错误，本次没有存入表单库。' });
+    });
+    return;
+  }
+
+  if (pathname === '/api/library/toggle' || pathname === '/api/library/remove') {
+    if (method !== 'POST') return json(res, 405, { error: 'method not allowed' });
+    handleLibraryFlag(req, res, pathname.endsWith('remove') ? 'remove' : 'toggle').catch((e) => {
+      console.error('[library] flag error ' + (e && e.name));
+      if (!res.headersSent) json(res, 500, { error: '服务端内部错误，本次操作没有生效。' });
     });
     return;
   }

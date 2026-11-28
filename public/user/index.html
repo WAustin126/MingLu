@@ -86,8 +86,10 @@
         <span class="source-chip" id="sourceChip">正在读取表单…</span>
         <button type="button" class="btn secondary" id="openImport" style="min-height:44px;padding:9px 16px;font-size:.85rem">打开一张表</button>
         <button type="button" class="btn ghost" id="useSample" style="min-height:44px;padding:9px 16px;font-size:.85rem">改用示例表</button>
+        <button type="button" class="btn ghost" id="switchForm" hidden style="min-height:44px;padding:9px 16px;font-size:.85rem">换一张表</button>
       </div>
 
+      <div id="pickerArea" hidden></div>
       <div id="overviewArea" aria-live="polite"></div>
       <div id="fieldList"></div>
       <div class="btn-row">
@@ -305,6 +307,8 @@
 
   /* ---------- 载入表单：机构发布 > 自己导入 > 示例 ---------- */
   function applySchema(schema, source) {
+    var pa = $("#pickerArea");
+    if (pa) { pa.hidden = true; }
     state.schema = schema;
     state.fields = schema.fields || [];
     state.answers = {};
@@ -347,15 +351,68 @@
       } catch (e) { /* stored imported data broken: fall back */ }
       loadDefaultSchema();
     }
-    /* 服务器发布优先：机构在任何浏览器发布，这里都读得到 */
-    if (MingluImport.getServerPublished) {
-      MingluImport.getServerPublished().then(function (sp) {
-        if (usable(sp)) { applySchema(sp.schema, "published"); return; }
+    /* 表单库优先：发布过的表都在，打开先选一张再填 */
+    function serverFallback() {
+      if (MingluImport.getServerPublished) {
+        MingluImport.getServerPublished().then(function (sp) {
+          if (usable(sp)) { applySchema(sp.schema, "published"); return; }
+          localFallback();
+        });
+      } else {
         localFallback();
+      }
+    }
+    if (MingluImport.getLibrary) {
+      MingluImport.getLibrary().then(function (lib) {
+        var entries = ((lib && lib.forms) || []).filter(function (e) {
+          return e && e.published && usable({ schema: e.schema });
+        });
+        if (entries.length) { showPicker(entries); return; }
+        serverFallback();
       });
     } else {
-      localFallback();
+      serverFallback();
     }
+  }
+
+  /* ---------- 表单库选表 ---------- */
+  var libraryEntries = [];
+  function showPicker(entries) {
+    libraryEntries = entries;
+    var area = $("#pickerArea");
+    var html = '<div class="card"><h2 style="font-size:1.05em;margin-top:0">先选一张要填的表</h2>' +
+      '<p class="fhelp">这些都是机构检查修复后发布过的表，选一张开始填。以前发布过的也都在，一张没丢。</p><ul class="review-list">';
+    entries.forEach(function (e, i) {
+      var f = (e.schema && e.schema.fields) || [];
+      var req = f.filter(function (x) { return x.required; }).length;
+      var when = e.updated_at ? new Date(e.updated_at).toLocaleString("zh-CN", { hour12: false }) : "";
+      html += '<li><span class="k">《' + Minglu.escapeHtml(e.title) + '》</span>' +
+        '<span class="v">' + f.length + " 项 · " + req + " 项必填" + (when ? " · " + Minglu.escapeHtml(when) : "") +
+        ' <button type="button" class="btn" data-pick="' + i + '" style="min-height:44px;padding:8px 18px">填这张</button></span></li>';
+    });
+    html += "</ul></div>";
+    area.innerHTML = html;
+    area.hidden = false;
+    $("#overviewArea").innerHTML = "";
+    $("#fieldList").innerHTML = "";
+    $("#startFill").disabled = true;
+    $("#sourceChip").textContent = "表单库 · 先选一张表";
+    Array.prototype.forEach.call(area.querySelectorAll("[data-pick]"), function (b) {
+      b.addEventListener("click", function () {
+        var e = entries[parseInt(b.getAttribute("data-pick"), 10)];
+        if (!e) return;
+        applySchema(e.schema, "published");
+        var sw = $("#switchForm");
+        if (sw) { sw.hidden = entries.length < 2; }
+      });
+    });
+    Minglu.speak("先选一张要填的表，一共 " + entries.length + " 张。");
+  }
+  var switchBtn = $("#switchForm");
+  if (switchBtn) {
+    switchBtn.addEventListener("click", function () {
+      if (libraryEntries.length) { showPicker(libraryEntries); }
+    });
   }
 
   /* ---------- 步骤 1：读表清单 ---------- */
