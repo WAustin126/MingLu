@@ -575,8 +575,12 @@
     var note = $("#voiceNote");
     if (!vbtn) { return; }
     if (!VoiceOK) {
-      vbtn.style.display = "none";
-      if (note) { note.textContent = "这个浏览器不能录音，可以打字填。"; }
+      if (note) { note.textContent = window.isSecureContext ? "这个浏览器不能录音，可以打字填。" : "语音录入按钮在下面，但现在用不了：这页是 http 地址打开的，浏览器不让用麦克风。换成 https 地址打开就能用，也可以先打字填。"; }
+      vbtn.addEventListener("click", function () {
+        var msg = window.isSecureContext ? "这个浏览器不能录音，可以打字填。" : "现在是 http 地址，浏览器不让用麦克风。请改用 https 地址打开这一页：47.93.151.236.sslip.io/minglu/user/ ，语音录入就能用；也可以先打字填。";
+        if (note) { note.textContent = msg; }
+        speakNow(msg);
+      });
       return;
     }
     if (window.isSecureContext && note) { note.textContent = "点一下开始说话，再点一下结束。AI 会从你说的话里提取这一项要填的内容。"; }
