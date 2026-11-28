@@ -518,7 +518,6 @@
         ' value="' + Minglu.escapeHtml(val != null ? val : "") + '">';
     }
     html += '<div class="voice-row"><button type="button" class="btn secondary" id="voiceFillBtn">🎤 点一下说话</button>' +
-      '<button type="button" class="btn secondary" id="micTestBtn">🎙 先试一下麦克风</button>' +
       '<span class="voice-note" id="voiceNote" role="status"></span></div><div id="voiceCard"></div>';
     stage.innerHTML = html;
 
@@ -575,27 +574,12 @@
     var vbtn = $("#voiceFillBtn");
     var note = $("#voiceNote");
     if (!vbtn) { return; }
-    var mbtn = $("#micTestBtn");
-    if (mbtn) {
-      mbtn.addEventListener("click", function () {
-        if (!window.isSecureContext) {
-          if (note) { note.textContent = "麦克风自检也要 HTTPS 安全页面：请用 https 开头的地址打开这一页再试（http 地址浏览器不让用麦克风）。"; }
-          speakNow("自检也要用 HTTPS 地址打开这一页，http 地址浏览器不让用麦克风。");
-          return;
-        }
-        if (!VoiceOK) {
-          if (note) { note.textContent = "这个浏览器不能录音（没有麦克风接口），可以打字填。"; }
-          return;
-        }
-        toggleMicTest();
-      });
-    }
     if (!VoiceOK) {
       vbtn.style.display = "none";
-      if (note) { note.textContent = window.isSecureContext ? "这个浏览器不能录音，可以打字填。" : "当前是 http 地址，浏览器不让用麦克风；用 https 地址打开这一页才能语音填表，也可以先打字填。"; }
+      if (note) { note.textContent = "这个浏览器不能录音，可以打字填。"; }
       return;
     }
-    if (window.isSecureContext && note) { note.textContent = "点一下开始说话，再点一下结束。可以直接说这一项的内容，AI 会提取；也可以说口令：「下一项」「上一项」「再读一遍」。"; }
+    if (window.isSecureContext && note) { note.textContent = "点一下开始说话，再点一下结束。AI 会从你说的话里提取这一项要填的内容。"; }
     vbtn.addEventListener("click", function () {
       if (!window.isSecureContext) {
         if (note) { note.textContent = "语音填表需要 HTTPS 安全页面，这个公网地址暂时用不了；可以先打字填。"; }
@@ -692,75 +676,6 @@
     return btoa(bin);
   }
 
-  /* ---------- 语音口令：整句精确匹配才执行，不会误伤正常答案 ---------- */
-  function handleVoiceCommand(f, text) {
-    var t = String(text || "").replace(/[。！!？?\s]+$/g, "");
-    var note = $("#voiceNote");
-    function say(msg) { if (note) { note.textContent = msg; } speakNow(msg); }
-    if (t === "下一项" || t === "下一个" || t === "继续") {
-      say("好，下一项。");
-      $("#nextField").click();
-      return true;
-    }
-    if (t === "上一项" || t === "上一个") {
-      if (state.idx > 0) { say("好，上一项。"); $("#prevField").click(); }
-      else { say("已经是第一项了。"); }
-      return true;
-    }
-    if (t === "再读一遍" || t === "重读" || t === "再说一遍" || t === "读一遍") {
-      speakNow(localHintSpeech(f));
-      if (note) { note.textContent = "已重读这一项的说明。"; }
-      return true;
-    }
-    if (t === "朗读选项" || t === "读选项" || t === "有哪些选项") {
-      var ra = $("#readAllOpts");
-      if (ra) { ra.click(); } else { say("这一项没有选项，直接说要填的内容就行。"); }
-      return true;
-    }
-    if (t === "清空" || t === "清空重填" || t === "删掉") {
-      var el = document.getElementById("answer");
-      if (el) { el.value = ""; }
-      Array.prototype.forEach.call(document.querySelectorAll('input[name="answer"]'), function (inp) { inp.checked = false; });
-      say("已清空这一项，重新说或打字填都行。");
-      return true;
-    }
-    return false;
-  }
-
-  /* ---------- 麦克风自检：录一句、当场转文字，通没通一目了然 ---------- */
-  var micTestOn = false;
-  function setMicTestBtn(recording) {
-    var b = $("#micTestBtn");
-    if (!b) { return; }
-    if (recording) { b.classList.add("recording"); b.textContent = "🔴 正在听，再点一下结束"; }
-    else { b.classList.remove("recording"); b.textContent = "🎙 先试一下麦克风"; }
-  }
-  function toggleMicTest() {
-    var note = $("#voiceNote");
-    if (micTestOn) {
-      micTestOn = false;
-      setMicTestBtn(false);
-      if (note) { note.textContent = "正在识别你刚才说的话…"; }
-      stopCapture();
-      return;
-    }
-    if (window.speechSynthesis) { try { speechSynthesis.cancel(); } catch (e) {} }
-    micTestOn = true;
-    setMicTestBtn(true);
-    if (note) { note.textContent = "自检开始：随便说一句话，比如「明路，你好」，说完再点一下按钮结束。"; }
-    speakNow("自检开始，请随便说一句话。");
-    startCapture(function (err, text) {
-      micTestOn = false;
-      setMicTestBtn(false);
-      var n = $("#voiceNote");
-      if (err) { if (n) { n.textContent = "自检结果：没通过。" + voiceErrText(err); } return; }
-      var t = String(text || "").trim();
-      if (!t) { if (n) { n.textContent = "自检结果：录到了声音，但没听清内容。靠近麦克风一点、说大声些再试；如果一直这样，可能是麦克风音量太小，去系统声音设置里把输入音量调大。"; } return; }
-      if (n) { n.textContent = "✅ 自检通过：麦克风没问题，我听到了：「" + t + "」。可以放心用「点一下说话」填表了。"; }
-      speakNow("自检通过，我听到了：" + t);
-    }, 8000);
-  }
-
   var capOn = false;
 
   function setVoiceBtn(recording) {
@@ -771,7 +686,7 @@
   }
 
   function voiceErrText(err) {
-    if (err === "gum-NotAllowedError" || err === "not-allowed") { return "麦克风没有被允许（NotAllowedError）。先这样试：点地址栏左侧的图标，把麦克风改成「允许」，刷新页面再试。还不行就换三条路：①用手机打开同一个地址；②用 Chrome 访客窗口打开；③换 Firefox 打开。"; }
+    if (err === "gum-NotAllowedError" || err === "not-allowed") { return "麦克风没有被允许。请点浏览器地址栏旁边的麦克风图标，允许这个网站使用麦克风，再试一次。"; }
     if (err === "gum-NotReadableError" || err === "gum-AbortError") { return "麦克风被别的程序占用了（" + err.slice(4) + "）。先关掉正在用麦克风的程序——比如语音通话、钉钉会议、录音机——再点一次。"; }
     if (err === "gum-NotFoundError" || err === "gum-OverconstrainedError") { return "没找到能用的麦克风（" + err.slice(4) + "）。确认麦克风插好了，或在浏览器设置里换一个麦克风设备。"; }
     if (err && err.indexOf("gum-") === 0) { return "录音没能开始（错误：" + err.slice(4) + "）。把这个错误名告诉小鱼儿。"; }
@@ -804,7 +719,6 @@
       if (err) { if (n) { n.textContent = voiceErrText(err); } return; }
       if (!text || !String(text).trim()) { if (n) { n.textContent = "没有听清，点一下再说一次。"; } return; }
       if (n) { n.textContent = ""; }
-      if (handleVoiceCommand(f, String(text).trim())) { return; }
       processTranscript(f, String(text).trim());
     }, 45000);
   }
